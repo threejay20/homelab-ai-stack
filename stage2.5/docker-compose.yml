@@ -3,12 +3,6 @@ networks:
     external: true
 
 services:
-
-  # ─────────────────────────────────────────
-  # DevOps AI Agent — ReAct loop with tools
-  # Docker access via socket proxy only —
-  # no raw socket mount
-  # ─────────────────────────────────────────
   agent:
     build:
       context: ./app
@@ -16,6 +10,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      DOCKER_HOST: tcp://homelab-socket-proxy:2375
     ports:
       - "8001:8001"
     networks:

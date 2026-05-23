@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  # ─────────────────────────────────────────
+  # Prometheus scrapes itself
+  # ─────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+
+  # ─────────────────────────────────────────
+  # RAG pipeline metrics
+  # ─────────────────────────────────────────
+  - job_name: rag-pipeline
+    static_configs:
+      - targets: [homelab-rag:8000]
+    metrics_path: /metrics
+
+  # ─────────────────────────────────────────
+  # Agent metrics
+  # ─────────────────────────────────────────
+  - job_name: agent
+    static_configs:
+      - targets: [homelab-agent:8001]
+    metrics_path: /metrics
+
+  # ─────────────────────────────────────────
+  # Node exporter — host system metrics
+  # CPU, memory, disk at the OS level
+  # ─────────────────────────────────────────
+  - job_name: node
+    static_configs:
+      - targets: [homelab-node-exporter:9100]
