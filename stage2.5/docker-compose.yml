@@ -1,0 +1,24 @@
+networks:
+  homelab-network:
+    external: true
+
+services:
+
+  # ─────────────────────────────────────────
+  # DevOps AI Agent — ReAct loop with tools
+  # ─────────────────────────────────────────
+  agent:
+    build:
+      context: ./app
+    container_name: homelab-agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8001:8001"
+    networks:
+      - homelab-network
+    mem_limit: 1g
+    volumes:
+      - ./app:/app
+      - /var/run/docker.sock:/var/run/docker.sock

@@ -10,6 +10,7 @@ independently deployable and builds on the previous.
 |---|---|---|
 | [stage1](./stage1) | Local AI serving stack | Ollama · MLflow · PostgreSQL · Portainer |
 | [stage2](./stage2) | RAG pipeline | Qdrant · LangChain · FastAPI |
+| [stage2.5](./stage2.5) | DevOps AI agent | LangChain · llama3.2:3b · Docker socket |
 
 ## Prerequisites
 
