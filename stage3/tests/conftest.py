@@ -2,17 +2,11 @@ import pytest
 import httpx
 import time
 
-# ─────────────────────────────────────────
-# Service URLs
-# These point to the running Stage 2 and 2.5 services
-# ─────────────────────────────────────────
 RAG_URL   = "http://localhost:8000"
 AGENT_URL = "http://localhost:8001"
+RAG_KEY   = "homelab-rag-key-2024"
+AGENT_KEY = "homelab-agent-key-2024"
 
-# ─────────────────────────────────────────
-# Test document — ingested once per session
-# Known content means we can write deterministic tests
-# ─────────────────────────────────────────
 TEST_DOCUMENT = """
 Container Restart Policy
 
@@ -46,23 +40,27 @@ Recommended limits for this lab:
 - FastAPI apps: 1g
 """
 
+
 @pytest.fixture(scope="session")
 def rag_client():
-    """HTTP client for RAG pipeline."""
-    return httpx.Client(base_url=RAG_URL, timeout=120.0)
+    return httpx.Client(
+        base_url=RAG_URL,
+        timeout=120.0,
+        headers={"X-API-Key": RAG_KEY}
+    )
+
 
 @pytest.fixture(scope="session")
 def agent_client():
-    """HTTP client for agent."""
-    return httpx.Client(base_url=AGENT_URL, timeout=120.0)
+    return httpx.Client(
+        base_url=AGENT_URL,
+        timeout=120.0,
+        headers={"X-API-Key": AGENT_KEY}
+    )
+
 
 @pytest.fixture(scope="session", autouse=True)
 def ingest_test_document(rag_client):
-    """
-    Ingest the test document once before all tests run.
-    autouse=True means this runs automatically — no need
-    to reference it explicitly in test functions.
-    """
     print("\nIngesting test document...")
     response = rag_client.post(
         "/ingest",
@@ -71,5 +69,6 @@ def ingest_test_document(rag_client):
     assert response.status_code == 200
     data = response.json()
     print(f"Ingested {data['chunks_stored']} chunks")
-
-    #
+    time.sleep(2)
+    yield
+    print("\nTest session complete")

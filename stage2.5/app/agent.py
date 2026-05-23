@@ -28,9 +28,14 @@ llm = OllamaLLM(
 # ─────────────────────────────────────────
 def rag_search(question: str) -> str:
     try:
+        rag_api_key = os.getenv("RAG_API_KEY", "")
+        headers = {}
+        if rag_api_key:
+            headers["X-API-Key"] = rag_api_key
         response = httpx.post(
             f"http://{RAG_HOST}:{RAG_PORT}/query",
             json={"question": question},
+            headers=headers,
             timeout=120.0
         )
         data = response.json()
@@ -38,22 +43,31 @@ def rag_search(question: str) -> str:
     except Exception as e:
         return f"RAG search error: {str(e)}"
 
-
 def docker_status(input: str = "") -> str:
     try:
-        result = subprocess.run(
-            ["docker", "ps", "--format",
-             "table {{.Names}}\t{{.Status}}\t{{.Ports}}"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        docker_host = os.getenv("DOCKER_HOST", "unix:///var/run/docker.sock")
+        if docker_host.startswith("tcp://"):
+            host = docker_host.replace("tcp://", "")
+            result = subprocess.run(
+                ["docker", "-H", host, "ps", "--format",
+                 "table {{.Names}}\t{{.Status}}\t{{.Ports}}"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+        else:
+            result = subprocess.run(
+                ["docker", "ps", "--format",
+                 "table {{.Names}}\t{{.Status}}\t{{.Ports}}"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
         if result.returncode == 0:
             return result.stdout if result.stdout else "No containers running"
         return f"Docker error: {result.stderr}"
     except Exception as e:
         return f"Docker status error: {str(e)}"
-
 
 def system_info(input: str = "") -> str:
     try:

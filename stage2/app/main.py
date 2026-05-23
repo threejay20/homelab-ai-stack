@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from pydantic import BaseModel
 from langchain_ollama import OllamaLLM
 from langchain_community.vectorstores import Qdrant
@@ -10,6 +10,29 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 import os
 import tempfile
+from fastapi.security.api_key import APIKeyHeader
+from fastapi import Security
+import secrets
+
+
+# ─────────────────────────────────────────
+# API Key Authentication
+# All endpoints except /health and /
+# require a valid X-API-Key header
+# ─────────────────────────────────────────
+API_KEY = os.getenv("API_KEY", "")
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+async def verify_api_key(api_key: str = Security(api_key_header)):
+    if not API_KEY:
+        return  # No key configured — open access (dev mode)
+    if api_key != API_KEY:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid or missing API key"
+        )
+    return api_key
 
 app = FastAPI(
     title="Homelab RAG API",
@@ -158,7 +181,7 @@ def health():
         "model": OLLAMA_MODEL
     }
 
-@app.post("/ingest", response_model=IngestResponse)
+@app.post("/ingest", response_model=IngestResponse, dependencies=[Depends(verify_api_key)])
 async def ingest(file: UploadFile = File(...)):
     """
     Upload a document (PDF or TXT) and ingest it into the vector database.
@@ -191,7 +214,7 @@ async def ingest(file: UploadFile = File(...)):
         collection=COLLECTION_NAME
     )
 
-@app.post("/query", response_model=QueryResponse)
+@app.post("/query", response_model=QueryResponse, dependencies=[Depends(verify_api_key)])
 def query(request: QueryRequest):
     """
     Ask a question. The RAG pipeline retrieves relevant document chunks
@@ -224,7 +247,7 @@ def query(request: QueryRequest):
         collection=request.collection
     )
 
-@app.get("/collections")
+@app.get("/collections", dependencies=[Depends(verify_api_key)])
 def list_collections():
     """List all collections in Qdrant with document counts."""
     collections = qdrant_client.get_collections().collections

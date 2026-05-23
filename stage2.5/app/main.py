@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security.api_key import APIKeyHeader
+from fastapi import Security
 from pydantic import BaseModel
 from agent import run_agent, docker_status, system_info, rag_search
 import httpx
@@ -6,12 +8,29 @@ import os
 
 app = FastAPI(
     title="DevOps AI Agent",
-    description="ReAct agent with RAG, Docker, and system tools",
+    description="AI agent with RAG, Docker, and system tools",
     version="1.0.0"
 )
 
 RAG_HOST = os.getenv("RAG_HOST", "homelab-rag")
 RAG_PORT = os.getenv("RAG_PORT", "8000")
+
+# ─────────────────────────────────────────
+# API Key Authentication
+# ─────────────────────────────────────────
+API_KEY = os.getenv("API_KEY", "")
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+async def verify_api_key(api_key: str = Security(api_key_header)):
+    if not API_KEY:
+        return
+    if api_key != API_KEY:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid or missing API key"
+        )
+    return api_key
 
 # ─────────────────────────────────────────
 # Request/Response models
@@ -70,13 +89,11 @@ def health():
         "system_tool": system_tool_status
     }
 
-@app.post("/agent", response_model=AgentResponse)
+@app.post("/agent", response_model=AgentResponse, dependencies=[Depends(verify_api_key)])
 def ask_agent(request: AgentRequest):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
-
     result = run_agent(request.question)
-
     return AgentResponse(
         question=result["question"],
         answer=result["answer"],
@@ -84,21 +101,21 @@ def ask_agent(request: AgentRequest):
         tool_used=result.get("tool_used", "")
     )
 
-@app.get("/tools/docker", response_model=ToolResponse)
+@app.get("/tools/docker", response_model=ToolResponse, dependencies=[Depends(verify_api_key)])
 def tool_docker():
     return ToolResponse(
         tool="docker_status",
         result=docker_status()
     )
 
-@app.get("/tools/system", response_model=ToolResponse)
+@app.get("/tools/system", response_model=ToolResponse, dependencies=[Depends(verify_api_key)])
 def tool_system():
     return ToolResponse(
         tool="system_info",
         result=system_info()
     )
 
-@app.post("/tools/rag", response_model=ToolResponse)
+@app.post("/tools/rag", response_model=ToolResponse, dependencies=[Depends(verify_api_key)])
 def tool_rag(request: AgentRequest):
     return ToolResponse(
         tool="rag_search",
