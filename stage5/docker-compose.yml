@@ -1,0 +1,27 @@
+networks:
+  homelab-network:
+    external: true
+
+services:
+
+  # ─────────────────────────────────────────
+  # Stage 5 — Multi-Agent Orchestrator
+  # ChiChi (Planner) → Nezuko (Retriever)
+  # → Mikasa (Executor) → ChiChi (Synthesis)
+  # WebSocket streaming for live UI updates
+  # ─────────────────────────────────────────
+  chichi:
+    build:
+      context: ./app
+    container_name: homelab-chichi
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8002:8002"
+    networks:
+      - homelab-network
+    mem_limit: 1g
+    volumes:
+      - ./app:/app
+

@@ -13,6 +13,7 @@ independently deployable and builds on the previous.
 | [stage2.5](./stage2.5) | DevOps AI agent | LangChain · llama3.2:3b · Docker socket |
 | [stage3](./stage3) | CI/CD for AI | GitHub Actions · pytest · eval pipeline |
 | [stage4](./stage4) | Monitoring + observability | Prometheus · Grafana · Evidently AI |
+| [stage5](./stage5) | Multi-agent orchestration | ChiChi · Nezuko · Mikasa · WebSocket streaming |
 
 ## Prerequisites
 
