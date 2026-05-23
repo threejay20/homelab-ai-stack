@@ -1,0 +1,118 @@
+name: AI Stack Evaluation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ─────────────────────────────────────────
+      # Step 1 — Checkout code
+      # ─────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ─────────────────────────────────────────
+      # Step 2 — Install Python and test dependencies
+      # ─────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          pip install pytest httpx
+
+      # ─────────────────────────────────────────
+      # Step 3 — Create Docker network
+      # ─────────────────────────────────────────
+      - name: Create Docker network
+        run: docker network create homelab-network
+
+      # ─────────────────────────────────────────
+      # Step 4 — Start Stage 1 services
+      # Ollama needs to be running for LLM inference
+      # ─────────────────────────────────────────
+      - name: Start Stage 1 services
+        working-directory: stage1
+        run: |
+          docker compose up -d
+          echo "Waiting for Stage 1 services..."
+          sleep 30
+
+      # ─────────────────────────────────────────
+      # Step 5 — Pull LLM model
+      # ─────────────────────────────────────────
+      - name: Pull Ollama model
+        run: |
+          docker exec homelab-ollama ollama pull phi3:mini
+          echo "Model ready"
+
+      # ─────────────────────────────────────────
+      # Step 6 — Build and start Stage 2
+      # ─────────────────────────────────────────
+      - name: Build and start Stage 2 RAG pipeline
+        working-directory: stage2
+        run: |
+          cp .env.example .env
+          docker compose build
+          docker compose up -d
+          echo "Waiting for RAG pipeline..."
+          sleep 20
+
+      # ─────────────────────────────────────────
+      # Step 7 — Build and start Stage 2.5
+      # ─────────────────────────────────────────
+      - name: Build and start Stage 2.5 agent
+        working-directory: stage2.5
+        run: |
+          cp .env.example .env
+          docker compose build
+          docker compose up -d
+          echo "Waiting for agent..."
+          sleep 15
+
+      # ─────────────────────────────────────────
+      # Step 8 — Verify all services are up
+      # ─────────────────────────────────────────
+      - name: Verify service health
+        run: |
+          curl -f http://localhost:8000/health
+          curl -f http://localhost:8001/health
+          echo "All services healthy"
+
+      # ─────────────────────────────────────────
+      # Step 9 — Run RAG evaluation tests
+      # ─────────────────────────────────────────
+      - name: Run RAG pipeline tests
+        working-directory: stage3
+        run: |
+          pytest tests/test_rag.py -v --tb=short
+
+      # ─────────────────────────────────────────
+      # Step 10 — Run agent evaluation tests
+      # ─────────────────────────────────────────
+      - name: Run agent routing tests
+        working-directory: stage3
+        run: |
+          pytest tests/test_agent.py -v --tb=short
+
+      # ─────────────────────────────────────────
+      # Step 11 — Print container logs on failure
+      # Makes debugging failed runs much easier
+      # ─────────────────────────────────────────
+      - name: Print logs on failure
+        if: failure()
+        run: |
+          echo "=== Stage 1 logs ==="
+          docker compose -f stage1/docker-compose.yml logs --tail=50
+          echo "=== Stage 2 logs ==="
+          docker compose -f stage2/docker-compose.yml logs --tail=50
+          echo "=== Stage 2.5 logs ==="
+          docker compose -f stage2.5/docker-compose.yml logs --tail=50
