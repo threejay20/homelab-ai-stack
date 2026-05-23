@@ -1,0 +1,45 @@
+networks:
+  homelab-network:
+    external: true
+
+volumes:
+  qdrant_storage:
+
+services:
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: homelab-qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    networks:
+      - homelab-network
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 1 bash -c 'cat < /dev/null > /dev/tcp/localhost/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rag-app:
+    build:
+      context: ./app
+    container_name: homelab-rag
+    restart: unless-stopped
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    networks:
+      - homelab-network
+    mem_limit: 1g
+    volumes:
+      - ./docs:/app/docs
+      - ./app:/app

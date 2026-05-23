@@ -1,0 +1,93 @@
+
+networks:
+  homelab-network:
+    external: true
+
+volumes:
+  postgres_data:
+  mlflow_artifacts:
+  ollama_data:
+  portainer_data:
+
+services:
+
+  # ─────────────────────────────────────────
+  # PostgreSQL — MLflow's database backend
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: homelab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - homelab-network
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # MLflow — Experiment tracking + model registry
+  # ─────────────────────────────────────────
+  mlflow:
+    build:
+      context: ./mlflow
+    container_name: homelab-mlflow
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MLFLOW_ARTIFACT_ROOT: /mlflow/artifacts
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    ports:
+      - "5000:5000"
+    networks:
+      - homelab-network
+    mem_limit: 512m
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+
+  # ─────────────────────────────────────────
+  # Ollama — Local LLM runtime
+  # ─────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: homelab-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - homelab-network
+    mem_limit: 6g
+
+  # ─────────────────────────────────────────
+  # Portainer — Docker visual dashboard
+  # ─────────────────────────────────────────
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: homelab-portainer
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    ports:
+      - "9000:9000"
+    networks:
+      - homelab-network
+    mem_limit: 256m
