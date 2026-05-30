@@ -8,7 +8,7 @@ from agents import run_multiagent, AgentEvent, AgentStatus
 
 app = FastAPI(
     title="Homelab Multi-Agent Orchestrator",
-    description="ChiChi, Nezuko, and Mikasa",
+    description="Tribal Chief, Nezuko, and Mikasa",
     version="1.0.0"
 )
 
@@ -29,7 +29,7 @@ active_connections: list[WebSocket] = []
 def root():
     return {
         "service": "Homelab Multi-Agent Orchestrator",
-        "agents": ["ChiChi", "Nezuko", "Mikasa"],
+        "agents": ["Tribal Chief", "Nezuko", "Mikasa"],
         "status": "running"
     }
 
@@ -38,7 +38,7 @@ def health():
     return {
         "status": "ok",
         "agents": {
-            "chichi": "ready",
+            "tribal_chief": "ready",
             "nezuko": "ready",
             "mikasa": "ready"
         }
@@ -52,7 +52,7 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_text(json.dumps({
             "agent": "system",
             "status": "connected",
-            "message": "Connected to Homelab AI Command Center. ChiChi, Nezuko, and Mikasa are standing by."
+            "message": "Connected to Homelab AI Command Center. Tribal Chief, Nezuko, and Mikasa are standing by."
         }))
         while True:
             data = await websocket.receive_text()
@@ -96,7 +96,7 @@ async def run_task_http(request: TaskRequest):
         events.append(event.model_dump())
     final = next(
         (e for e in reversed(events)
-         if e["agent"] == "chichi" and e["status"] == "complete"),
+         if e["agent"] == "tribal_chief" and e["status"] == "complete"),
         None
     )
     return {

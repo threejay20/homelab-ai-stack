@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const AGENTS = {
-  chichi: {
-    name: 'ChiChi',
+  tribal_chief: {
+    name: 'Tribal Chief',
     role: 'Director',
     color: '#4f8ef7',
     sprite: 'Claude-1',
@@ -49,20 +49,20 @@ const FURNITURE = [
 ]
 
 const WALK_PATHS = {
-  'chichi-to-nezuko': [
+  'tribal_chief-to-nezuko': [
     { x: 41.6, y: 62.7, facing: 'front-left' },
     { x: 37.9, y: 68.2, facing: 'front-left' },
   ],
-  'chichi-from-nezuko': [
+  'tribal_chief-from-nezuko': [
     { x: 41.6, y: 62.7, facing: 'rear-right' },
     { x: 48.9, y: 52.9, facing: 'rear-right' },
   ],
-  'chichi-to-mikasa': [
+  'tribal_chief-to-mikasa': [
     { x: 59.5, y: 57.1, facing: 'rear-right' },
     { x: 68.7, y: 66.2, facing: 'rear-right' },
     { x: 65.9, y: 75.8, facing: 'front-right' },
   ],
-  'chichi-from-mikasa': [
+  'tribal_chief-from-mikasa': [
     { x: 68.7, y: 66.2, facing: 'rear-left' },
     { x: 59.5, y: 57.1, facing: 'rear-left' },
     { x: 48.9, y: 52.9, facing: 'rear-left' },
@@ -197,14 +197,14 @@ function DataOrb({ visible, x, y, color, scale }) {
 }
 
 export default function App() {
-  const [statuses, setStatuses] = useState({ chichi: 'idle', nezuko: 'idle', mikasa: 'idle' })
+  const [statuses, setStatuses] = useState({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle' })
   const [positions, setPositions] = useState({
-    chichi: { x: AGENTS.chichi.deskX, y: AGENTS.chichi.deskY },
+    tribal_chief: { x: AGENTS.tribal_chief.deskX, y: AGENTS.tribal_chief.deskY },
     nezuko: { x: AGENTS.nezuko.deskX, y: AGENTS.nezuko.deskY },
     mikasa: { x: AGENTS.mikasa.deskX, y: AGENTS.mikasa.deskY },
   })
   const [facings, setFacings] = useState({
-    chichi: AGENTS.chichi.deskFacing,
+    tribal_chief: AGENTS.tribal_chief.deskFacing,
     nezuko: AGENTS.nezuko.deskFacing,
     mikasa: AGENTS.mikasa.deskFacing,
   })
@@ -231,8 +231,8 @@ export default function App() {
   }, [log])
 
   const addLog = useCallback((agent, msg) => {
-    const colors = { chichi: '#4f8ef7', nezuko: '#f472b6', mikasa: '#ef4444', system: '#6b7280' }
-    const names = { chichi: 'ChiChi', nezuko: 'Nezuko', mikasa: 'Mikasa', system: 'SYSTEM' }
+    const colors = { tribal_chief: '#4f8ef7', nezuko: '#f472b6', mikasa: '#ef4444', system: '#6b7280' }
+    const names = { tribal_chief: 'Tribal Chief', nezuko: 'Nezuko', mikasa: 'Mikasa', system: 'SYSTEM' }
     setLog(prev => [...prev.slice(-60), {
       id: Date.now() + Math.random(), agent, msg,
       color: colors[agent] || '#6b7280',
@@ -258,8 +258,8 @@ export default function App() {
     if (!path) return
     path.forEach(wp => {
       enqueue(done => {
-        setFacings(f => ({ ...f, chichi: wp.facing }))
-        setPositions(p => ({ ...p, chichi: { x: wp.x, y: wp.y } }))
+        setFacings(f => ({ ...f, tribal_chief: wp.facing }))
+        setPositions(p => ({ ...p, tribal_chief: { x: wp.x, y: wp.y } }))
         setTimeout(done, 1050)
       })
     })
@@ -293,15 +293,15 @@ export default function App() {
         if (agent !== 'system') {
           setStatuses(p => ({ ...p, [agent]: status }))
           addLog(agent, message)
-          if (agent === 'chichi' && status === 'active' && handoff_to && handoff_to !== 'chichi') {
+          if (agent === 'tribal_chief' && status === 'active' && handoff_to && handoff_to !== 'tribal_chief') {
             const target = AGENTS[handoff_to]
             if (target) {
-              enqueueWalkPath(`chichi-to-${handoff_to}`)
+              enqueueWalkPath(`tribal_chief-to-${handoff_to}`)
               enqueueDelay(200)
               enqueueOrb(target.deskX, target.deskY - 8, target.color)
               enqueueDelay(400)
-              enqueueWalkPath(`chichi-from-${handoff_to}`)
-              enqueueSetStatus('chichi', 'thinking')
+              enqueueWalkPath(`tribal_chief-from-${handoff_to}`)
+              enqueueSetStatus('tribal_chief', 'thinking')
             }
           }
           if (status === 'complete' && data?.final_answer) setFinalAnswer(data.final_answer)
@@ -310,11 +310,11 @@ export default function App() {
           if (status === 'done') {
             setRunning(false)
             enqueue(done => {
-              setPositions(p => ({ ...p, chichi: { x: AGENTS.chichi.deskX, y: AGENTS.chichi.deskY } }))
-              setFacings(f => ({ ...f, chichi: AGENTS.chichi.deskFacing }))
+              setPositions(p => ({ ...p, tribal_chief: { x: AGENTS.tribal_chief.deskX, y: AGENTS.tribal_chief.deskY } }))
+              setFacings(f => ({ ...f, tribal_chief: AGENTS.tribal_chief.deskFacing }))
               setTimeout(done, 1100)
             })
-            enqueue(done => { setStatuses({ chichi: 'idle', nezuko: 'idle', mikasa: 'idle' }); done() })
+            enqueue(done => { setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle' }); done() })
           }
         }
       } catch (err) { console.error(err) }
@@ -330,14 +330,14 @@ export default function App() {
     setLog([])
     queueRef.current = []
     processingRef.current = false
-    setStatuses({ chichi: 'idle', nezuko: 'idle', mikasa: 'idle' })
+    setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle' })
     setPositions({
-      chichi: { x: AGENTS.chichi.deskX, y: AGENTS.chichi.deskY },
+      tribal_chief: { x: AGENTS.tribal_chief.deskX, y: AGENTS.tribal_chief.deskY },
       nezuko: { x: AGENTS.nezuko.deskX, y: AGENTS.nezuko.deskY },
       mikasa: { x: AGENTS.mikasa.deskX, y: AGENTS.mikasa.deskY },
     })
     setFacings({
-      chichi: AGENTS.chichi.deskFacing,
+      tribal_chief: AGENTS.tribal_chief.deskFacing,
       nezuko: AGENTS.nezuko.deskFacing,
       mikasa: AGENTS.mikasa.deskFacing,
     })
@@ -482,7 +482,7 @@ export default function App() {
             {log.length === 0 ? (
               <div style={{ padding: '20px 14px', color: '#374151', fontSize: 11, textAlign: 'center', lineHeight: 1.6 }}>
                 <div style={{ fontSize: 24, marginBottom: 8 }}>💬</div>
-                Type a task below to deploy<br/>ChiChi, Nezuko and Mikasa
+                Type a task below to deploy<br/>Tribal Chief, Nezuko and Mikasa
               </div>
             ) : (
               log.map(e => (

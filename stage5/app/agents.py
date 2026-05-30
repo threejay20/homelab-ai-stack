@@ -50,13 +50,13 @@ llm = OllamaLLM(
 )
 
 # ─────────────────────────────────────────
-# ChiChi — Planner
+# Tribal Chief — Planner
 # Receives task, creates execution plan,
 # delegates to Nezuko and Mikasa,
 # synthesizes final answer
 # ─────────────────────────────────────────
-async def chichi_plan(task: str) -> dict:
-    prompt = f"""You are ChiChi, a strategic AI planner. Analyze this task and decide which tools are needed.
+async def tribal_chief_plan(task: str) -> dict:
+    prompt = f"""You are Tribal Chief, a strategic AI planner. Analyze this task and decide which tools are needed.
 
 Task: {task}
 
@@ -89,8 +89,8 @@ Respond in this exact JSON format, nothing else:
         "plan": "Gathering information from all available sources"
     }
 
-async def chichi_synthesize(task: str, nezuko_result: str, mikasa_result: str) -> str:
-    prompt = f"""You are ChiChi, a strategic AI assistant. Synthesize these results into a clear, helpful answer.
+async def tribal_chief_synthesize(task: str, nezuko_result: str, mikasa_result: str) -> str:
+    prompt = f"""You are Tribal Chief, a strategic AI assistant. Synthesize these results into a clear, helpful answer.
 
 Original question: {task}
 
@@ -133,14 +133,12 @@ async def mikasa_execute(query: str) -> str:
         return "No execution required for this task."
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            # Get docker status
             docker_response = await client.get(
                 f"http://{AGENT_HOST}:{AGENT_PORT}/tools/docker",
                 headers={"X-API-Key": AGENT_API_KEY}
             )
             docker_data = docker_response.json()
 
-            # Get system info
             system_response = await client.get(
                 f"http://{AGENT_HOST}:{AGENT_PORT}/tools/system",
                 headers={"X-API-Key": AGENT_API_KEY}
@@ -157,18 +155,18 @@ async def mikasa_execute(query: str) -> str:
 # Yields AgentEvents for WebSocket streaming
 # ─────────────────────────────────────────
 async def run_multiagent(task: str):
-    # ── ChiChi Plans ──
+    # ── Tribal Chief Plans ──
     yield AgentEvent(
-        agent="chichi",
+        agent="tribal_chief",
         status=AgentStatus.THINKING,
         message="Analyzing your request and forming a plan..."
     )
     await asyncio.sleep(0.5)
 
-    plan = await chichi_plan(task)
+    plan = await tribal_chief_plan(task)
 
     yield AgentEvent(
-        agent="chichi",
+        agent="tribal_chief",
         status=AgentStatus.ACTIVE,
         message=plan.get("plan", "Planning complete"),
         data=plan,
@@ -199,7 +197,7 @@ async def run_multiagent(task: str):
             status=AgentStatus.COMPLETE,
             message="Search complete. Handing findings to Mikasa.",
             data={"result": nezuko_result[:200] + "..." if len(nezuko_result) > 200 else nezuko_result},
-            handoff_to="mikasa" if plan.get("needs_mikasa") else "chichi"
+            handoff_to="mikasa" if plan.get("needs_mikasa") else "tribal_chief"
         )
         await asyncio.sleep(0.5)
 
@@ -224,24 +222,24 @@ async def run_multiagent(task: str):
         yield AgentEvent(
             agent="mikasa",
             status=AgentStatus.COMPLETE,
-            message="Execution complete. Returning results to ChiChi.",
+            message="Execution complete. Returning results to Tribal Chief.",
             data={"result": mikasa_result[:200] + "..." if len(mikasa_result) > 200 else mikasa_result},
-            handoff_to="chichi"
+            handoff_to="tribal_chief"
         )
         await asyncio.sleep(0.5)
 
-    # ── ChiChi Synthesizes ──
+    # ── Tribal Chief Synthesizes ──
     yield AgentEvent(
-        agent="chichi",
+        agent="tribal_chief",
         status=AgentStatus.THINKING,
         message="All agents reporting in... synthesizing final answer..."
     )
     await asyncio.sleep(0.5)
 
-    final_answer = await chichi_synthesize(task, nezuko_result, mikasa_result)
+    final_answer = await tribal_chief_synthesize(task, nezuko_result, mikasa_result)
 
     yield AgentEvent(
-        agent="chichi",
+        agent="tribal_chief",
         status=AgentStatus.COMPLETE,
         message="Analysis complete.",
         data={"final_answer": final_answer}
