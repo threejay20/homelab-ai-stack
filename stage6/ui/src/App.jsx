@@ -9,6 +9,7 @@ const AGENTS = {
     deskX: 48.9,
     deskY: 52.9,
     deskFacing: 'rear-right',
+    voiceId: 'nPczCjzI2devNBz1zQrb',
   },
   nezuko: {
     name: 'Nezuko',
@@ -18,6 +19,7 @@ const AGENTS = {
     deskX: 37.9,
     deskY: 68.2,
     deskFacing: 'rear-right',
+    voiceId: 'EXAVITQu4vr4xnSDxMaL',
   },
   mikasa: {
     name: 'Mikasa',
@@ -27,6 +29,7 @@ const AGENTS = {
     deskX: 65.9,
     deskY: 75.8,
     deskFacing: 'rear-right',
+    voiceId: 'Xb7hH8MSUJpSbSDYk0k2',
   },
 }
 
@@ -73,8 +76,6 @@ function getSpriteSrc(spriteName, facing) {
   return `/sprites/characters/${spriteName}-${facing}.png`
 }
 
-// Room renders at 800x600 internally
-// We scale everything relative to that
 function useRoomScale(containerRef) {
   const [scale, setScale] = useState(1)
   useEffect(() => {
@@ -94,19 +95,12 @@ function FurnitureLayer({ scale }) {
   return (
     <>
       {FURNITURE.map(item => (
-        <img
-          key={item.id} src={item.src} alt=""
-          draggable={false}
+        <img key={item.id} src={item.src} alt="" draggable={false}
           style={{
-            position: 'absolute',
-            left: `${item.x}%`,
-            top: `${item.y}%`,
-            width: `${item.w * scale}px`,
-            height: 'auto',
-            transform: 'translate(-50%, -100%)',
-            zIndex: item.z,
-            pointerEvents: 'none',
-            userSelect: 'none',
+            position: 'absolute', left: `${item.x}%`, top: `${item.y}%`,
+            width: `${item.w * scale}px`, height: 'auto',
+            transform: 'translate(-50%, -100%)', zIndex: item.z,
+            pointerEvents: 'none', userSelect: 'none',
           }}
         />
       ))}
@@ -120,16 +114,12 @@ function Character({ agentKey, status, position, facing, scale }) {
   const complete = status === 'complete'
   const zIndex = Math.round(position.y * 10) + 100
   const charHeight = Math.round(90 * scale)
-
   return (
     <div style={{
-      position: 'absolute',
-      left: `${position.x}%`,
-      top: `${position.y}%`,
+      position: 'absolute', left: `${position.x}%`, top: `${position.y}%`,
       transform: 'translate(-50%, -100%)',
       transition: 'left 1.0s cubic-bezier(0.4,0,0.2,1), top 1.0s cubic-bezier(0.4,0,0.2,1)',
-      zIndex,
-      pointerEvents: 'none',
+      zIndex, pointerEvents: 'none',
     }}>
       <div style={{
         position: 'absolute', bottom: '100%', left: '50%',
@@ -154,25 +144,14 @@ function Character({ agentKey, status, position, facing, scale }) {
           {cfg.name}
         </div>
       </div>
-      <img
-        src={getSpriteSrc(cfg.sprite, facing)}
-        alt={cfg.name}
+      <img src={getSpriteSrc(cfg.sprite, facing)} alt={cfg.name}
         style={{
-          height: `${charHeight}px`,
-          width: 'auto',
-          imageRendering: 'auto',
-          filter: on
-            ? `drop-shadow(0 0 ${8*scale}px ${cfg.color}) brightness(1.15)`
+          height: `${charHeight}px`, width: 'auto', imageRendering: 'auto',
+          filter: on ? `drop-shadow(0 0 ${8*scale}px ${cfg.color}) brightness(1.15)`
             : complete ? `drop-shadow(0 0 ${6*scale}px #22c55e)` : 'none',
           transition: 'filter 0.4s ease',
         }}
       />
-      {complete && (
-        <div style={{
-          position: 'absolute', top: `-${3*charHeight/90}em`, right: '-0.5em',
-          fontSize: 16 * scale, animation: 'fadeIn 0.3s ease',
-        }}>✓</div>
-      )}
     </div>
   )
 }
@@ -184,8 +163,7 @@ function DataOrb({ visible, x, y, color, scale }) {
     <div style={{
       position: 'absolute', left: `${x}%`, top: `${y}%`,
       transform: 'translate(-50%, -50%)', zIndex: 500,
-      pointerEvents: 'none',
-      animation: 'orbFloat 0.4s ease infinite alternate',
+      pointerEvents: 'none', animation: 'orbFloat 0.4s ease infinite alternate',
     }}>
       <div style={{
         width: size, height: size, borderRadius: '50%',
@@ -193,6 +171,26 @@ function DataOrb({ visible, x, y, color, scale }) {
         boxShadow: `0 0 ${size}px ${color}, 0 0 ${size*2}px ${color}88`,
       }} />
     </div>
+  )
+}
+
+function MicButton({ listening, onClick, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      title={listening ? 'Stop listening' : 'Speak to Tribal Chief'}
+      style={{
+        width: 36, height: 36, borderRadius: '50%',
+        border: `2px solid ${listening ? '#ef4444' : 'rgba(79,142,247,0.5)'}`,
+        background: listening ? 'rgba(239,68,68,0.15)' : 'rgba(79,142,247,0.1)',
+        color: listening ? '#ef4444' : '#4f8ef7',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 16, flexShrink: 0, transition: 'all 0.2s',
+        animation: listening ? 'micPulse 1s ease infinite' : 'none',
+      }}
+    >
+      {listening ? '⏹' : '🎤'}
+    </button>
   )
 }
 
@@ -214,6 +212,10 @@ export default function App() {
   const [task, setTask] = useState('')
   const [running, setRunning] = useState(false)
   const [connected, setConnected] = useState(false)
+  const [listening, setListening] = useState(false)
+  const [voiceEnabled, setVoiceEnabled] = useState(true)
+  const [transcript, setTranscript] = useState('')
+  const [speaking, setSpeaking] = useState(false)
   const [timeOfDay] = useState(() => {
     const h = new Date().getHours()
     return h >= 7 && h < 19 ? 'day' : 'night'
@@ -224,11 +226,90 @@ export default function App() {
   const roomRef = useRef(null)
   const queueRef = useRef([])
   const processingRef = useRef(false)
+  const recognitionRef = useRef(null)
+  const audioRef = useRef(null)
+  const usedVoiceRef = useRef(false)
   const scale = useRoomScale(roomRef)
+
+  const ELEVEN_API_KEY = 'sk_1a476f6828de4765ec4ada947d2febb009e68366ef4fd023'
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
   }, [log])
+
+  // ElevenLabs TTS — replaces browser speech synthesis
+  const speak = useCallback(async (text, agent = 'tribal_chief') => {
+    if (!voiceEnabled) return
+    if (!usedVoiceRef.current) return
+    const cfg = AGENTS[agent]
+    if (!cfg?.voiceId) return
+    try {
+      setSpeaking(true)
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${cfg.voiceId}`,
+        {
+          method: 'POST',
+          headers: {
+            'xi-api-key': ELEVEN_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: text.substring(0, 500),
+            model_id: 'eleven_turbo_v2',
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+          }),
+        }
+      )
+      if (!response.ok) { setSpeaking(false); return }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url) }
+      audio.onerror = () => { setSpeaking(false) }
+      await audio.play()
+    } catch (err) {
+      console.error('ElevenLabs TTS error:', err)
+      setSpeaking(false)
+    }
+  }, [voiceEnabled])
+
+  const setupRecognition = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) return null
+    const recognition = new SpeechRecognition()
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
+    recognition.onstart = () => setListening(true)
+    recognition.onend = () => setListening(false)
+    recognition.onresult = (e) => {
+      const results = Array.from(e.results)
+      const t = results.map(r => r[0].transcript).join('')
+      setTranscript(t)
+      if (results[results.length - 1].isFinal) {
+        setTask(t)
+        setTranscript('')
+        usedVoiceRef.current = true
+      }
+    }
+    recognition.onerror = (e) => { console.error('Speech error:', e.error); setListening(false) }
+    return recognition
+  }, [])
+
+  const toggleListening = useCallback(() => {
+    if (listening) { recognitionRef.current?.stop(); return }
+    if (!recognitionRef.current) recognitionRef.current = setupRecognition()
+    if (!recognitionRef.current) {
+      alert('Speech recognition not supported. Please use Chrome.')
+      return
+    }
+    recognitionRef.current.start()
+  }, [listening, setupRecognition])
 
   const addLog = useCallback((agent, msg) => {
     const colors = { tribal_chief: '#4f8ef7', nezuko: '#f472b6', mikasa: '#ef4444', system: '#6b7280' }
@@ -293,6 +374,9 @@ export default function App() {
         if (agent !== 'system') {
           setStatuses(p => ({ ...p, [agent]: status }))
           addLog(agent, message)
+          if (status === 'thinking' && agent === 'tribal_chief') speak(message, 'tribal_chief')
+          if (status === 'active' && agent === 'nezuko') speak(message, 'nezuko')
+          if (status === 'active' && agent === 'mikasa') speak(message, 'mikasa')
           if (agent === 'tribal_chief' && status === 'active' && handoff_to && handoff_to !== 'tribal_chief') {
             const target = AGENTS[handoff_to]
             if (target) {
@@ -304,7 +388,10 @@ export default function App() {
               enqueueSetStatus('tribal_chief', 'thinking')
             }
           }
-          if (status === 'complete' && data?.final_answer) setFinalAnswer(data.final_answer)
+          if (status === 'complete' && data?.final_answer) {
+            setFinalAnswer(data.final_answer)
+            speak(data.final_answer, 'tribal_chief')
+          }
         } else {
           addLog('system', message)
           if (status === 'done') {
@@ -314,16 +401,16 @@ export default function App() {
               setFacings(f => ({ ...f, tribal_chief: AGENTS.tribal_chief.deskFacing }))
               setTimeout(done, 1100)
             })
-            enqueue(done => { setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle' }); done() })
+            enqueue(done => { setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle' }); usedVoiceRef.current = false; done() })
           }
         }
       } catch (err) { console.error(err) }
     }
-  }, [addLog, enqueue, enqueueWalkPath, enqueueOrb, enqueueDelay, enqueueSetStatus])
+  }, [addLog, enqueue, enqueueWalkPath, enqueueOrb, enqueueDelay, enqueueSetStatus, speak])
 
   useEffect(() => { connect(); return () => wsRef.current?.close() }, [])
 
-  const send = () => {
+  const send = useCallback(() => {
     if (!task.trim() || !connected || running) return
     setRunning(true)
     setFinalAnswer('')
@@ -343,15 +430,21 @@ export default function App() {
     })
     wsRef.current?.send(JSON.stringify({ task }))
     setTask('')
-  }
+  }, [task, connected, running])
+
+  useEffect(() => {
+    if (task && !listening && transcript === '') {
+      const timer = setTimeout(() => send(), 800)
+      return () => clearTimeout(timer)
+    }
+  }, [task, listening, transcript])
 
   const bgImage = timeOfDay === 'day' ? '/rooms/office-day.png' : '/rooms/office-night.png'
 
   return (
     <div style={{
-      height: '100vh', background: '#07071a',
-      color: '#e5e7eb', fontFamily: 'monospace',
-      display: 'flex', flexDirection: 'column',
+      height: '100vh', background: '#07071a', color: '#e5e7eb',
+      fontFamily: 'monospace', display: 'flex', flexDirection: 'column',
       padding: '12px', gap: '10px', overflow: 'hidden',
     }}>
       <style>{`
@@ -359,6 +452,8 @@ export default function App() {
         @keyframes statusPulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
         @keyframes orbFloat { from{transform:translate(-50%,-50%) scale(1)} to{transform:translate(-50%,-50%) scale(1.3)} }
         @keyframes connPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)} 50%{box-shadow:0 0 0 8px rgba(239,68,68,0)} }
+        @keyframes speakPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.7;transform:scale(1.05)} }
         * { box-sizing: border-box }
         ::-webkit-scrollbar { width: 4px }
         ::-webkit-scrollbar-track { background: #050510 }
@@ -372,68 +467,70 @@ export default function App() {
           background: 'linear-gradient(90deg,#4f8ef7,#f472b6,#ef4444)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>HOMELAB AI COMMAND CENTER</div>
-        <div style={{
-          fontSize: 10, marginTop: 3, letterSpacing: 2,
-          color: connected ? '#22c55e' : '#ef4444',
-          animation: connected ? 'none' : 'connPulse 1.5s infinite',
-        }}>
-          {connected ? '● CONNECTED — AGENTS STANDING BY' : '● CONNECTING...'}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 3 }}>
+          <div style={{
+            fontSize: 10, letterSpacing: 2,
+            color: connected ? '#22c55e' : '#ef4444',
+            animation: connected ? 'none' : 'connPulse 1.5s infinite',
+          }}>
+            {connected ? '● CONNECTED' : '● CONNECTING...'}
+          </div>
+          <button
+            onClick={() => { if(audioRef.current) audioRef.current.pause(); setVoiceEnabled(v => !v) }}
+            style={{
+              fontSize: 9, letterSpacing: 1, padding: '2px 8px', borderRadius: 10,
+              border: `1px solid ${voiceEnabled ? (speaking ? '#22c55e' : '#4f8ef7') : 'rgba(55,65,81,0.4)'}`,
+              background: voiceEnabled ? (speaking ? 'rgba(34,197,94,0.15)' : 'rgba(79,142,247,0.15)') : 'transparent',
+              color: voiceEnabled ? (speaking ? '#22c55e' : '#4f8ef7') : '#4b5563',
+              cursor: 'pointer', fontFamily: 'monospace',
+              animation: speaking ? 'speakPulse 0.8s ease infinite' : 'none',
+            }}
+          >
+            {voiceEnabled ? (speaking ? '🔊 SPEAKING...' : '🔊 VOICE ON') : '🔇 VOICE OFF'}
+          </button>
         </div>
       </div>
 
       <div style={{ flex: 1, display: 'flex', gap: '10px', overflow: 'hidden', minHeight: 0 }}>
-
-        {/* Office - 800:600 aspect ratio, scale everything inside */}
-        <div style={{
-          flex: 1, display: 'flex', alignItems: 'flex-start',
-          justifyContent: 'center', overflow: 'hidden',
-        }}>
-          <div
-            ref={roomRef}
-            style={{
-              position: 'relative',
-              width: '100%',
-              paddingBottom: '75%', // 600/800 = 75%
-              borderRadius: 12,
-              overflow: 'hidden',
-              border: '1px solid rgba(55,65,81,0.3)',
-            }}
-          >
-            <img
-              src={bgImage} alt="Office" draggable={false}
-              style={{
-                position: 'absolute', top: 0, left: 0,
-                width: '100%', height: '100%',
-                objectFit: 'fill',
-                userSelect: 'none', zIndex: 0,
-              }}
-            />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflow: 'hidden' }}>
+          <div ref={roomRef} style={{
+            position: 'relative', width: '100%', paddingBottom: '75%',
+            borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(55,65,81,0.3)',
+          }}>
+            <img src={bgImage} alt="Office" draggable={false} style={{
+              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+              objectFit: 'fill', userSelect: 'none', zIndex: 0,
+            }} />
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
               <FurnitureLayer scale={scale} />
               {Object.keys(AGENTS).map(key => (
-                <Character
-                  key={key} agentKey={key}
-                  status={statuses[key]} position={positions[key]}
-                  facing={facings[key]} scale={scale}
-                />
+                <Character key={key} agentKey={key} status={statuses[key]}
+                  position={positions[key]} facing={facings[key]} scale={scale} />
               ))}
               <DataOrb visible={orb.visible} x={orb.x} y={orb.y} color={orb.color} scale={scale} />
             </div>
+            {listening && (
+              <div style={{
+                position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+                background: 'rgba(239,68,68,0.9)', borderRadius: 20, padding: '6px 16px',
+                zIndex: 400, fontSize: 11, color: 'white', fontFamily: 'monospace',
+                fontWeight: 700, letterSpacing: 1, animation: 'micPulse 1s ease infinite',
+              }}>
+                🎤 LISTENING... {transcript && `"${transcript}"`}
+              </div>
+            )}
             <div style={{
-              position: 'absolute', bottom: 8, left: 12,
-              fontSize: 9, letterSpacing: 2,
-              color: 'rgba(255,255,255,0.25)', zIndex: 300,
+              position: 'absolute', bottom: 8, left: 12, fontSize: 9,
+              letterSpacing: 2, color: 'rgba(255,255,255,0.25)', zIndex: 300,
             }}>
               {timeOfDay === 'day' ? '☀ DAY MODE' : '🌙 NIGHT MODE'}
             </div>
           </div>
         </div>
 
-        {/* Chat panel */}
         <div style={{
           width: 300, display: 'flex', flexDirection: 'column',
-          background: 'rgba(5,5,20,0.95)',
-          border: '1px solid rgba(55,65,81,0.4)',
+          background: 'rgba(5,5,20,0.95)', border: '1px solid rgba(55,65,81,0.4)',
           borderRadius: 12, overflow: 'hidden', flexShrink: 0,
         }}>
           <div style={{
@@ -480,9 +577,12 @@ export default function App() {
 
           <div ref={logRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
             {log.length === 0 ? (
-              <div style={{ padding: '20px 14px', color: '#374151', fontSize: 11, textAlign: 'center', lineHeight: 1.6 }}>
-                <div style={{ fontSize: 24, marginBottom: 8 }}>💬</div>
-                Type a task below to deploy<br/>Tribal Chief, Nezuko and Mikasa
+              <div style={{ padding: '20px 14px', color: '#374151', fontSize: 11, textAlign: 'center', lineHeight: 1.8 }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>🎤</div>
+                <div style={{ marginBottom: 6 }}>Press the mic or type below</div>
+                <div style={{ fontSize: 9, color: '#1f2937' }}>
+                  Tribal Chief, Nezuko and Mikasa<br/>are standing by
+                </div>
               </div>
             ) : (
               log.map(e => (
@@ -519,7 +619,7 @@ export default function App() {
                 borderRadius: 8, animation: 'fadeIn 0.5s ease',
               }}>
                 <div style={{ fontSize: 9, color: '#a78bfa', fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>
-                  ✦ CHICHI'S REPORT
+                  ✦ TRIBAL CHIEF'S REPORT
                 </div>
                 <div style={{ fontSize: 11, color: '#d1d5db', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
                   {finalAnswer}
@@ -531,41 +631,40 @@ export default function App() {
           <div style={{ padding: '10px 12px', flexShrink: 0, borderTop: '1px solid rgba(55,65,81,0.3)' }}>
             <div style={{
               background: 'rgba(15,15,30,0.8)',
-              border: `1px solid ${running ? 'rgba(79,142,247,0.4)' : 'rgba(55,65,81,0.4)'}`,
-              borderRadius: 8, overflow: 'hidden',
+              border: `1px solid ${listening ? 'rgba(239,68,68,0.5)' : running ? 'rgba(79,142,247,0.4)' : 'rgba(55,65,81,0.4)'}`,
+              borderRadius: 8, overflow: 'hidden', transition: 'border-color 0.2s',
             }}>
               <textarea
-                value={task}
+                value={transcript || task}
                 onChange={e => setTask(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-                placeholder="Message #command-center..."
-                disabled={running || !connected}
+                placeholder={listening ? '🎤 Listening...' : 'Message #command-center...'}
+                disabled={running || !connected || listening}
                 rows={2}
                 style={{
                   width: '100%', background: 'transparent', border: 'none',
-                  color: '#e5e7eb', fontFamily: 'monospace',
-                  fontSize: 12, lineHeight: 1.5, padding: '8px 10px',
+                  color: listening ? '#ef4444' : '#e5e7eb',
+                  fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5, padding: '8px 10px',
                 }}
               />
               <div style={{
-                display: 'flex', justifyContent: 'flex-end',
-                padding: '4px 8px 6px',
-                borderTop: '1px solid rgba(55,65,81,0.2)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '4px 8px 6px', borderTop: '1px solid rgba(55,65,81,0.2)',
               }}>
-                <button onClick={send} disabled={!task.trim() || running || !connected} style={{
+                <MicButton listening={listening} onClick={toggleListening} disabled={running || !connected} />
+                <button onClick={send} disabled={!task.trim() || running || !connected || listening} style={{
                   padding: '4px 14px',
                   background: !task.trim() || running || !connected ? 'rgba(79,142,247,0.2)' : '#4f8ef7',
                   border: 'none', borderRadius: 5, color: 'white',
                   fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
-                  cursor: running || !task.trim() ? 'not-allowed' : 'pointer',
-                  letterSpacing: 1,
+                  cursor: running || !task.trim() ? 'not-allowed' : 'pointer', letterSpacing: 1,
                 }}>
                   {running ? '⚙' : '⏎ SEND'}
                 </button>
               </div>
             </div>
             <div style={{ fontSize: 9, color: '#374151', marginTop: 4, textAlign: 'center' }}>
-              Enter to send · Shift+Enter for new line
+              🎤 mic or Enter to send · Shift+Enter for new line
             </div>
           </div>
         </div>
