@@ -231,7 +231,7 @@ export default function App() {
   const usedVoiceRef = useRef(false)
   const scale = useRoomScale(roomRef)
 
-  const ELEVEN_API_KEY = 'sk_1a476f6828de4765ec4ada947d2febb009e68366ef4fd023'
+  const ELEVEN_API_KEY = import.meta.env.VITE_ELEVEN_API_KEY || ''
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
