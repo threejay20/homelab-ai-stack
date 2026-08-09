@@ -30,11 +30,13 @@ BEDROCK_SYNTH_MODEL = os.getenv("BEDROCK_SYNTH_MODEL", "anthropic.claude-haiku-4
 # Agent status enum
 # ─────────────────────────────────────────
 class AgentStatus(str, Enum):
-    IDLE     = "idle"
-    THINKING = "thinking"
-    ACTIVE   = "active"
-    COMPLETE = "complete"
-    ERROR    = "error"
+    IDLE       = "idle"
+    THINKING   = "thinking"
+    ACTIVE     = "active"
+    WAITING    = "waiting"
+    PROCESSING = "processing"
+    COMPLETE   = "complete"
+    ERROR      = "error"
 
 # ─────────────────────────────────────────
 # Event model
@@ -99,19 +101,26 @@ Available agents:
 - Nezuko: searches internal documents and runbooks for knowledge and procedures
 - Mikasa: checks Docker container status and system resource metrics
 - Levi: security auditor - checks for security issues, exposed ports, API key health
-- Eren: DevOps engineer - checks git status, CI/CD pipeline health, recent deployments
+- Eren: DevOps engineer - checks service health endpoints and deployment pipeline
 
-Respond in this exact JSON format, nothing else:
+Rules:
+- If the task mentions health, status, containers, metrics, system, infrastructure -> set needs_mikasa to true
+- If the task mentions security, ports, audit, vulnerabilities -> set needs_levi to true
+- If the task mentions health check, services, pipeline, deployment, CI/CD -> set needs_eren to true
+- If the task mentions documents, runbooks, knowledge, procedures -> set needs_nezuko to true
+- For general infrastructure questions, set needs_mikasa and needs_eren both to true
+
+Respond in this exact JSON format with no other text:
 {{
-    "needs_nezuko": true or false,
-    "needs_mikasa": true or false,
-    "needs_levi": true or false,
-    "needs_eren": true or false,
-    "nezuko_query": "what to search for, or empty string",
-    "mikasa_query": "what to check, or empty string",
-    "levi_query": "what to audit, or empty string",
-    "eren_query": "what to check, or empty string",
-    "plan": "one sentence describing your approach"
+    "needs_nezuko": true,
+    "needs_mikasa": true,
+    "needs_levi": false,
+    "needs_eren": true,
+    "nezuko_query": "...",
+    "mikasa_query": "...",
+    "levi_query": "...",
+    "eren_query": "...",
+    "plan": "one sentence describing approach"
 }}"""
 
     try:
@@ -119,7 +128,11 @@ Respond in this exact JSON format, nothing else:
         start = response.find("{")
         end = response.rfind("}") + 1
         if start >= 0 and end > start:
-            return json.loads(response[start:end])
+            parsed = json.loads(response[start:end])
+            # Fix common LLM typo
+            if "needs_ern" in parsed and "needs_eren" not in parsed:
+                parsed["needs_eren"] = parsed.pop("needs_ern")
+            return parsed
     except Exception as e:
         print(f"Plan error: {e}")
     return {
@@ -348,17 +361,27 @@ async def run_multiagent(task: str):
     plan = await tribal_chief_plan(task)
     results = {}
 
+    first_agent = ("nezuko" if plan.get("needs_nezuko") else
+                   "mikasa" if plan.get("needs_mikasa") else
+                   "levi" if plan.get("needs_levi") else
+                   "eren" if plan.get("needs_eren") else "tribal_chief")
+
     yield AgentEvent(
         agent="tribal_chief",
         status=AgentStatus.ACTIVE,
         message=plan.get("plan", "Planning complete"),
         data=plan,
-        handoff_to="nezuko" if plan.get("needs_nezuko") else
-                   "mikasa" if plan.get("needs_mikasa") else
-                   "levi" if plan.get("needs_levi") else
-                   "eren" if plan.get("needs_eren") else "tribal_chief"
+        handoff_to=first_agent
     )
     await asyncio.sleep(0.5)
+
+    if first_agent != "tribal_chief":
+        yield AgentEvent(
+            agent="tribal_chief",
+            status=AgentStatus.WAITING,
+            message="Delegated. Waiting for agents to report back..."
+        )
+        await asyncio.sleep(0.3)
 
     # Nezuko
     if plan.get("needs_nezuko") and plan.get("nezuko_query"):
@@ -420,7 +443,7 @@ async def run_multiagent(task: str):
         await asyncio.sleep(0.5)
 
     # Tribal Chief synthesizes
-    yield AgentEvent(agent="tribal_chief", status=AgentStatus.THINKING,
+    yield AgentEvent(agent="tribal_chief", status=AgentStatus.PROCESSING,
         message=f"All agents reporting in [{mode}]... synthesizing final answer...")
     await asyncio.sleep(0.5)
 

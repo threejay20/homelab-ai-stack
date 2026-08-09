@@ -39,7 +39,7 @@ const AGENTS = {
     deskX: 37.0,
     deskY: 66.5,
     deskFacing: 'rear-right',
-    voiceId: 'nPczCjzI2devNBz1zQrb',
+    voiceId: 'JBFqnCBsd6RMkjVDRZzb',
   },
   eren: {
     name: 'Eren',
@@ -150,7 +150,7 @@ function FurnitureLayer({ scale }) {
 
 function Character({ agentKey, status, position, facing, scale }) {
   const cfg = AGENTS[agentKey]
-  const on = status === 'active' || status === 'thinking'
+  const on = status === 'active' || status === 'thinking' || status === 'waiting' || status === 'processing'
   const complete = status === 'complete'
   const zIndex = Math.round(position.y * 10) + 100
   const charHeight = Math.round(90 * scale)
@@ -173,7 +173,7 @@ function Character({ agentKey, status, position, facing, scale }) {
             color: 'white', fontWeight: 700, letterSpacing: 1, marginBottom: 2,
             animation: 'statusPulse 1s ease infinite', display: 'inline-block',
           }}>
-            {status === 'thinking' ? 'THINKING...' : 'WORKING'}
+            {status === 'thinking' ? 'THINKING...' : status === 'waiting' ? 'WAITING...' : status === 'processing' ? 'PROCESSING...' : 'WORKING'}
           </div>
         )}
         <div style={{
@@ -421,8 +421,8 @@ export default function App() {
           if (status === 'thinking' && agent === 'tribal_chief') speak(message, 'tribal_chief')
           if (status === 'active' && agent === 'nezuko') speak(message, 'nezuko')
           if (status === 'active' && agent === 'mikasa') speak(message, 'mikasa')
-          if (status === 'thinking' && agent === 'levi') speak(message, 'levi')
-          if (status === 'thinking' && agent === 'eren') speak(message, 'eren')
+          if (status === 'active' && agent === 'levi') speak(message, 'levi')
+          if (status === 'active' && agent === 'eren') speak(message, 'eren')
           if (agent === 'tribal_chief' && status === 'active' && handoff_to && handoff_to !== 'tribal_chief') {
             const target = AGENTS[handoff_to]
             if (target) {
