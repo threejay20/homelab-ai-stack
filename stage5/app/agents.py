@@ -132,6 +132,28 @@ Respond in this exact JSON format with no other text:
             # Fix common LLM typo
             if "needs_ern" in parsed and "needs_eren" not in parsed:
                 parsed["needs_eren"] = parsed.pop("needs_ern")
+
+            # Keyword-based routing override — local LLM is unreliable
+            task_lower = task.lower()
+            security_keywords = ["security", "audit", "vulnerabil", "port", "exposure", "threat", "firewall", "api key", "breach", "hack", "pentest"]
+            devops_keywords = ["health", "service", "pipeline", "deploy", "ci/cd", "status", "endpoint", "uptime"]
+            infra_keywords = ["container", "docker", "memory", "cpu", "disk", "metric", "system"]
+
+            if any(k in task_lower for k in security_keywords):
+                parsed["needs_levi"] = True
+                if not parsed.get("levi_query"):
+                    parsed["levi_query"] = f"security audit: {task}"
+
+            if any(k in task_lower for k in devops_keywords):
+                parsed["needs_eren"] = True
+                if not parsed.get("eren_query"):
+                    parsed["eren_query"] = f"check service health: {task}"
+
+            if any(k in task_lower for k in infra_keywords):
+                parsed["needs_mikasa"] = True
+                if not parsed.get("mikasa_query"):
+                    parsed["mikasa_query"] = f"check infrastructure: {task}"
+
             return parsed
     except Exception as e:
         print(f"Plan error: {e}")
@@ -166,7 +188,7 @@ Original question: {task}
 
 {combined}
 
-Provide a comprehensive, well-structured answer that directly addresses the question.
+Provide a comprehensive, well-structured answer that directly addresses the question. Use plain text only - no markdown, no asterisks, no bullet points with asterisks. Use numbered lists or dashes instead.
 Answer:"""
 
     return invoke_llm(prompt, BEDROCK_SYNTH_MODEL)

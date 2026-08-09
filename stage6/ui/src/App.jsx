@@ -266,6 +266,7 @@ export default function App() {
   })
 
   const wsRef = useRef(null)
+  const tribalChiefWaitingRef = useRef(false)
   const logRef = useRef(null)
   const roomRef = useRef(null)
   const queueRef = useRef([])
@@ -416,7 +417,16 @@ export default function App() {
         const ev = JSON.parse(e.data)
         const { agent, status, message, data, handoff_to } = ev
         if (agent !== 'system') {
-          setStatuses(p => ({ ...p, [agent]: status }))
+          setStatuses(p => {
+            // Protect tribal_chief WAITING status while agents are working
+            if (agent !== 'tribal_chief' && tribalChiefWaitingRef.current) {
+              return { ...p, [agent]: status, tribal_chief: 'waiting' }
+            }
+            return { ...p, [agent]: status }
+          })
+          // Track when tribal_chief enters and exits waiting
+          if (agent === 'tribal_chief' && status === 'waiting') tribalChiefWaitingRef.current = true
+          if (agent === 'tribal_chief' && (status === 'processing' || status === 'complete')) tribalChiefWaitingRef.current = false
           addLog(agent, message)
           if (status === 'thinking' && agent === 'tribal_chief') speak(message, 'tribal_chief')
           if (status === 'active' && agent === 'nezuko') speak(message, 'nezuko')
@@ -435,7 +445,11 @@ export default function App() {
             }
           }
           if (status === 'complete' && data?.final_answer) {
-            setFinalAnswer(data.final_answer)
+            const cleaned = data.final_answer
+              .replace(/\*\*(.*?)\*\*/g, '$1')
+              .replace(/^\* /gm, '- ')
+              .replace(/^\*\*/gm, '')
+            setFinalAnswer(cleaned)
             speak(data.final_answer, 'tribal_chief')
           }
         } else {
