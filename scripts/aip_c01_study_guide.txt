@@ -1,0 +1,334 @@
+AWS Certified Generative AI Developer - Professional (AIP-C01) Study Guide
+==========================================================================
+
+EXAM OVERVIEW
+-------------
+- Exam code: AIP-C01
+- Level: Professional
+- Cost: $300 USD
+- Duration: 170 minutes
+- Questions: 65 scored + 10 unscored = 75 total
+- Passing score: 750/1000 (compensatory scoring - no per-domain minimum)
+- Valid for: 3 years
+
+EXAM DOMAINS AND WEIGHTINGS
+----------------------------
+Domain 1: Foundation Model Integration, Data Management, and Compliance - 31%
+Domain 2: Implementation and Integration - 26%
+Domain 3: AI Safety, Security, and Governance - 20%
+Domain 4: Operational Efficiency and Optimization - 12%
+Domain 5: Testing, Validation, and Troubleshooting - 11%
+
+DOMAIN 1: FOUNDATION MODEL INTEGRATION (31%)
+---------------------------------------------
+Key topics:
+- Choosing foundation models from Amazon Bedrock catalog
+  - Anthropic Claude: text generation, reasoning, long context
+  - Amazon Titan: embeddings, text generation
+  - Meta Llama: open-weight models, customizable
+  - Cohere: embeddings, reranking, RAG optimized
+- Model selection criteria: capability, context window, latency, cost
+- Retrieval Augmented Generation (RAG) architecture
+- Vector stores and knowledge bases
+- Amazon Bedrock Knowledge Bases
+- OpenSearch Serverless for vector search
+- Amazon Kendra for enterprise search
+- Data management and compliance for AI workloads
+- Chunking strategies for document ingestion
+- Embedding models and vector dimensions
+
+Key AWS Services for Domain 1:
+- Amazon Bedrock (primary service - know deeply)
+- Amazon OpenSearch Serverless
+- Amazon Kendra
+- Amazon S3 (document storage)
+- AWS Glue (data preparation)
+
+DOMAIN 2: IMPLEMENTATION AND INTEGRATION (26%)
+-----------------------------------------------
+Key topics:
+- Bedrock API: InvokeModel, Converse API
+- SageMaker JumpStart for pre-trained models
+- Prompt engineering techniques:
+  - System prompts and instruction following
+  - Few-shot learning with examples
+  - Chain-of-thought reasoning
+  - Output parsing and structured responses
+  - Zero-shot vs few-shot prompting
+- Bedrock Agents for tool use
+- Lambda functions as agent tools
+- Step Functions for multi-step orchestration
+- Action groups in Bedrock Agents
+- MCP (Model Context Protocol) integration
+- Amazon Bedrock AgentCore
+
+Key AWS Services for Domain 2:
+- Amazon Bedrock (InvokeModel, Converse)
+- AWS Lambda (tool use)
+- AWS Step Functions (orchestration)
+- Amazon SageMaker JumpStart
+
+DOMAIN 3: AI SAFETY, SECURITY, AND GOVERNANCE (20%)
+----------------------------------------------------
+Key topics:
+- Bedrock Guardrails for content filtering
+  - Harmful content detection
+  - PII detection and masking
+  - Topic restrictions
+  - Grounding checks
+- IAM policies for Bedrock access
+- VPC endpoints for private connectivity
+- Data encryption at rest and in transit (KMS)
+- Amazon Comprehend for PII detection
+- SageMaker Clarify for bias detection
+- Responsible AI principles:
+  - Fairness and bias mitigation
+  - Transparency and explainability
+  - Privacy protection
+  - Human oversight
+- Model governance practices
+- Audit logging with CloudTrail
+
+Key AWS Services for Domain 3:
+- Amazon Bedrock Guardrails
+- AWS IAM
+- AWS KMS
+- Amazon Comprehend
+- Amazon SageMaker Clarify
+- AWS CloudTrail
+
+DOMAIN 4: OPERATIONAL EFFICIENCY AND OPTIMIZATION (12%)
+---------------------------------------------------------
+Key topics:
+- Cost optimization strategies:
+  - On-demand vs provisioned throughput
+  - Model selection by cost-performance ratio
+  - Prompt caching to reduce token usage
+  - Batching requests
+- Latency optimization:
+  - Streaming responses
+  - Model selection for latency requirements
+  - Caching strategies
+- Monitoring with CloudWatch:
+  - Token usage metrics
+  - Latency metrics
+  - Error rates
+- Auto-scaling for inference endpoints
+- A/B testing for model comparison
+
+Key AWS Services for Domain 4:
+- Amazon CloudWatch
+- Amazon Bedrock (provisioned throughput)
+- AWS Cost Explorer
+
+DOMAIN 5: TESTING, VALIDATION, AND TROUBLESHOOTING (11%)
+----------------------------------------------------------
+Key topics:
+- Foundation model evaluation:
+  - Automated metrics (ROUGE, BLEU, BERTScore)
+  - Human evaluation (relevance, accuracy, fluency)
+  - LLM-as-judge evaluation
+- Building evaluation pipelines
+- Creating test datasets with ground truth
+- Troubleshooting common issues:
+  - Token limit errors
+  - Hallucination detection
+  - Latency problems
+  - Context window overflow
+- Error handling patterns:
+  - Retry with exponential backoff
+  - Fallback models
+  - Graceful degradation
+- Prompt regression testing
+
+KEY AWS SERVICES TO KNOW DEEPLY
+---------------------------------
+
+Amazon Bedrock (MOST IMPORTANT):
+- Fully managed service for foundation models
+- Model providers: Anthropic, Amazon, Meta, Cohere, Mistral, AI21
+- Knowledge Bases for RAG implementation
+- Agents for agentic AI workflows
+- Guardrails for content safety
+- Fine-tuning capabilities
+- Model evaluation tools
+- InvokeModel API and Converse API
+- Streaming responses
+- On-demand and provisioned throughput pricing
+
+Amazon SageMaker:
+- JumpStart: pre-trained model deployment
+- Pipelines: ML workflow automation
+- Clarify: bias detection and explainability
+- Model Registry: model versioning and governance
+- Endpoints: real-time inference
+- Processing Jobs: data transformation
+- Feature Store: feature management
+
+AWS Lambda:
+- Serverless compute for Bedrock Agent tools
+- Input/output schema handling
+- Permissions for Bedrock invocation
+- Cold start optimization
+
+AWS Step Functions:
+- Multi-step AI workflow orchestration
+- Integration with Bedrock, Lambda, SageMaker
+- Error handling and retry logic
+- Human approval steps
+- Parallel execution
+
+Amazon OpenSearch Serverless:
+- Vector search for RAG
+- K-NN (k-nearest neighbor) search
+- Index management
+- Integration with Bedrock Knowledge Bases
+
+Amazon Kendra:
+- Enterprise search with ML
+- Higher-level than OpenSearch
+- Connectors for common data sources
+- Natural language queries
+
+PROMPT ENGINEERING TECHNIQUES
+-------------------------------
+1. Zero-shot: Direct instruction without examples
+2. Few-shot: Provide examples before the task
+3. Chain-of-thought: Ask model to reason step by step
+4. System prompts: Set behavior and constraints
+5. Role prompting: Assign a persona to the model
+6. Output formatting: JSON, XML, structured data
+7. Constitutional AI: Self-critique and revision
+8. ReAct: Reason + Act pattern for agents
+
+RAG ARCHITECTURE PATTERNS
+--------------------------
+1. Naive RAG: Retrieve → Augment → Generate
+2. Advanced RAG:
+   - Query rewriting
+   - Hybrid search (semantic + keyword)
+   - Reranking retrieved chunks
+   - Metadata filtering
+3. Modular RAG:
+   - Multiple retrieval sources
+   - Dynamic retrieval strategies
+4. Key parameters:
+   - Chunk size (typically 256-512 tokens)
+   - Chunk overlap (10-20%)
+   - Top-K retrieval (typically 3-10)
+   - Similarity threshold
+
+BEDROCK AGENTS ARCHITECTURE
+-----------------------------
+Components:
+1. Foundation Model: The reasoning engine
+2. Action Groups: Lambda functions the agent can call
+3. Knowledge Bases: RAG data sources
+4. Session Management: Multi-turn conversation
+5. Orchestration: Planning and execution loop
+
+Agent execution loop:
+1. Receive user input
+2. Reason about what actions to take (ReAct)
+3. Call action group (Lambda)
+4. Process tool results
+5. Continue reasoning or return final answer
+
+VECTOR DATABASE CONCEPTS
+-------------------------
+- Embeddings: Dense vector representations of text
+- Cosine similarity: Measure of vector similarity
+- Approximate Nearest Neighbor (ANN): Fast similarity search
+- HNSW: Hierarchical Navigable Small World graph algorithm
+- Dimensions: all-MiniLM-L6-v2 = 384, text-embedding-3-small = 1536
+- Metadata filtering: Filter by document attributes before vector search
+
+HOW YOUR HOMELAB MAPS TO AIP-C01
+----------------------------------
+Your local stack vs AWS managed services:
+
+| Your Lab Component | AWS Equivalent | AIP-C01 Domain |
+|---|---|---|
+| Ollama + llama3.2 | Amazon Bedrock InvokeModel | Domain 1, 2 |
+| Qdrant vector DB | OpenSearch Serverless | Domain 1 |
+| LangChain RAG | Bedrock Knowledge Bases | Domain 1 |
+| sentence-transformers | Amazon Titan Embeddings | Domain 1 |
+| FastAPI RAG endpoint | Bedrock Knowledge Base API | Domain 1 |
+| Multi-agent system | Bedrock Agents + Action Groups | Domain 2 |
+| Docker tools | Lambda function tools | Domain 2 |
+| Prometheus + Grafana | CloudWatch + Managed Grafana | Domain 4 |
+| Evidently AI | SageMaker Model Monitor | Domain 4 |
+| pytest eval suite | Bedrock Model Evaluation | Domain 5 |
+| API key auth | IAM + API Gateway | Domain 3 |
+| agents.py prompts | Prompt Engineering best practices | Domain 2 |
+
+STUDY PLAN (6-8 WEEKS)
+------------------------
+Week 1: Bedrock foundations
+- Amazon Bedrock console walkthrough
+- InvokeModel and Converse API
+- Model catalog and selection criteria
+- Hands-on: Call Claude via Bedrock API
+
+Week 2: RAG on AWS
+- Bedrock Knowledge Bases setup
+- OpenSearch Serverless for vectors
+- Chunking strategies
+- Hands-on: Build RAG with Bedrock Knowledge Bases
+
+Week 3: Bedrock Agents
+- Agent architecture and components
+- Lambda tool use with action groups
+- Step Functions for orchestration
+- Hands-on: Build an agent with two tools
+
+Week 4: Prompt engineering deep dive
+- System prompts and constraints
+- Few-shot and chain-of-thought patterns
+- Output parsing with structured formats
+- Hands-on: Test prompts across multiple models
+
+Week 5: Security and governance
+- Bedrock Guardrails configuration
+- IAM policies for Bedrock
+- VPC endpoints
+- Hands-on: Configure Guardrails with content filters
+
+Week 6: Optimization and monitoring
+- Provisioned vs on-demand throughput
+- CloudWatch metrics for Bedrock
+- Cost optimization patterns
+- Hands-on: Set up CloudWatch dashboard
+
+Week 7: Testing and evaluation
+- Model evaluation pipeline
+- Automated and human evaluation
+- Troubleshooting common errors
+- Practice exams
+
+Week 8: Review and exam prep
+- Full practice exam (Tutorials Dojo)
+- Targeted review of weak domains
+- Exam day preparation
+
+PRACTICE RESOURCES
+-------------------
+1. AWS Skill Builder - Official practice questions
+2. Tutorials Dojo AIP-C01 practice exams
+3. AWS Bedrock Workshop (free, hands-on)
+4. Official AWS exam guide (docs.aws.amazon.com)
+5. AWS whitepapers:
+   - Generative AI on AWS
+   - Well-Architected Machine Learning Lens
+   - Responsible AI Best Practices
+
+EXAM TIPS
+----------
+1. Domain 1 is 31% - prioritize Bedrock and RAG
+2. You will read code snippets - know Python Bedrock API calls
+3. Scenario-based questions - focus on WHY not just WHAT
+4. Know the difference between Kendra and OpenSearch Serverless
+5. Guardrails is heavily tested in Domain 3
+6. Lambda + Bedrock Agents is a common pattern
+7. Compensatory scoring - no need to pass each domain separately
+8. 170 minutes for 75 questions = ~2.3 minutes per question
