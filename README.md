@@ -10,7 +10,7 @@
 
 ## What This Demonstrates
 
-Most engineers understand AI concepts. Few have built the full stack that runs them in production. This project implements the complete picture:
+This project implements the full AI infrastructure stack — from local LLM serving to multi-agent orchestration, evaluation, observability, and a live voice-enabled UI. Every component maps to an AWS managed service:
 
 | Capability | Implementation | AWS Equivalent |
 |---|---|---|
