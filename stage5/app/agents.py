@@ -3,6 +3,7 @@ import httpx
 import asyncio
 import boto3
 import json
+import subprocess
 from langchain_ollama import OllamaLLM
 from enum import Enum
 from pydantic import BaseModel
@@ -22,8 +23,8 @@ AGENT_PORT    = os.getenv("AGENT_PORT", "8001")
 AGENT_API_KEY = os.getenv("AGENT_API_KEY", "")
 USE_BEDROCK   = os.getenv("USE_BEDROCK", "false").lower() == "true"
 AWS_REGION    = os.getenv("AWS_REGION", "us-east-1")
-BEDROCK_PLAN_MODEL    = os.getenv("BEDROCK_PLAN_MODEL", "amazon.nova-micro-v1:0")
-BEDROCK_SYNTH_MODEL   = os.getenv("BEDROCK_SYNTH_MODEL", "anthropic.claude-haiku-4-5-20251001-v1:0")
+BEDROCK_PLAN_MODEL  = os.getenv("BEDROCK_PLAN_MODEL", "amazon.nova-micro-v1:0")
+BEDROCK_SYNTH_MODEL = os.getenv("BEDROCK_SYNTH_MODEL", "anthropic.claude-haiku-4-5-20251001-v1:0")
 
 # ─────────────────────────────────────────
 # Agent status enum
@@ -57,19 +58,13 @@ llm = OllamaLLM(
 def get_bedrock_client():
     return boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
-# ─────────────────────────────────────────
-# Bedrock invoke helpers
-# ─────────────────────────────────────────
 def bedrock_nova(prompt: str, model_id: str) -> str:
     client = get_bedrock_client()
     body = {
         "messages": [{"role": "user", "content": [{"text": prompt}]}],
         "inferenceConfig": {"maxTokens": 1000, "temperature": 0.1}
     }
-    response = client.invoke_model(
-        modelId=model_id,
-        body=json.dumps(body)
-    )
+    response = client.invoke_model(modelId=model_id, body=json.dumps(body))
     result = json.loads(response["body"].read())
     return result["output"]["message"]["content"][0]["text"].strip()
 
@@ -81,39 +76,46 @@ def bedrock_haiku(prompt: str) -> str:
         "temperature": 0.1,
         "messages": [{"role": "user", "content": prompt}]
     }
-    response = client.invoke_model(
-        modelId=BEDROCK_SYNTH_MODEL,
-        body=json.dumps(body)
-    )
+    response = client.invoke_model(modelId=BEDROCK_SYNTH_MODEL, body=json.dumps(body))
     result = json.loads(response["body"].read())
     return result["content"][0]["text"].strip()
 
+def invoke_llm(prompt: str, use_bedrock_model: str = None) -> str:
+    if USE_BEDROCK and use_bedrock_model:
+        if "haiku" in use_bedrock_model:
+            return bedrock_haiku(prompt)
+        return bedrock_nova(prompt, use_bedrock_model)
+    return llm.invoke(prompt).strip()
+
 # ─────────────────────────────────────────
-# Tribal Chief — Planner
+# Tribal Chief — Planner + Synthesizer
 # ─────────────────────────────────────────
 async def tribal_chief_plan(task: str) -> dict:
-    prompt = f"""You are Tribal Chief, a strategic AI planner. Analyze this task and decide which tools are needed.
+    prompt = f"""You are Tribal Chief, a strategic AI planner. Analyze this task and decide which agents are needed.
 
 Task: {task}
 
 Available agents:
-- Nezuko: searches internal documents and runbooks for procedures and knowledge
+- Nezuko: searches internal documents and runbooks for knowledge and procedures
 - Mikasa: checks Docker container status and system resource metrics
+- Levi: security auditor - checks for security issues, exposed ports, API key health
+- Eren: DevOps engineer - checks git status, CI/CD pipeline health, recent deployments
 
 Respond in this exact JSON format, nothing else:
 {{
     "needs_nezuko": true or false,
     "needs_mikasa": true or false,
+    "needs_levi": true or false,
+    "needs_eren": true or false,
     "nezuko_query": "what to search for, or empty string",
     "mikasa_query": "what to check, or empty string",
+    "levi_query": "what to audit, or empty string",
+    "eren_query": "what to check, or empty string",
     "plan": "one sentence describing your approach"
 }}"""
 
     try:
-        if USE_BEDROCK:
-            response = bedrock_nova(prompt, BEDROCK_PLAN_MODEL)
-        else:
-            response = llm.invoke(prompt).strip()
+        response = invoke_llm(prompt, BEDROCK_PLAN_MODEL)
         start = response.find("{")
         end = response.rfind("}") + 1
         if start >= 0 and end > start:
@@ -123,40 +125,45 @@ Respond in this exact JSON format, nothing else:
     return {
         "needs_nezuko": True,
         "needs_mikasa": True,
+        "needs_levi": False,
+        "needs_eren": False,
         "nezuko_query": task,
         "mikasa_query": task,
+        "levi_query": "",
+        "eren_query": "",
         "plan": "Gathering information from all available sources"
     }
 
-async def tribal_chief_synthesize(task: str, nezuko_result: str, mikasa_result: str) -> str:
-    prompt = f"""You are Tribal Chief, a strategic AI assistant. Synthesize these results into a clear, helpful answer.
+async def tribal_chief_synthesize(task: str, results: dict) -> str:
+    sections = []
+    if results.get("nezuko"):
+        sections.append(f"Knowledge base findings (Nezuko):\n{results['nezuko']}")
+    if results.get("mikasa"):
+        sections.append(f"Infrastructure status (Mikasa):\n{results['mikasa']}")
+    if results.get("levi"):
+        sections.append(f"Security audit (Levi):\n{results['levi']}")
+    if results.get("eren"):
+        sections.append(f"DevOps status (Eren):\n{results['eren']}")
+
+    combined = "\n\n".join(sections) if sections else "No results gathered."
+
+    prompt = f"""You are Tribal Chief, a strategic AI assistant. Synthesize these agent results into a clear, helpful answer.
 
 Original question: {task}
 
-Knowledge base findings (from Nezuko):
-{nezuko_result}
-
-Infrastructure status (from Mikasa):
-{mikasa_result}
+{combined}
 
 Provide a comprehensive, well-structured answer that directly addresses the question.
 Answer:"""
 
-    try:
-        if USE_BEDROCK:
-            return bedrock_haiku(prompt)
-        else:
-            return llm.invoke(prompt).strip()
-    except Exception as e:
-        print(f"Synthesize error: {e}")
-        return llm.invoke(prompt).strip()
+    return invoke_llm(prompt, BEDROCK_SYNTH_MODEL)
 
 # ─────────────────────────────────────────
 # Nezuko — Retriever
 # ─────────────────────────────────────────
 async def nezuko_search(query: str) -> str:
     if not query:
-        return "No search required for this task."
+        return "No search required."
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
@@ -174,7 +181,7 @@ async def nezuko_search(query: str) -> str:
 # ─────────────────────────────────────────
 async def mikasa_execute(query: str) -> str:
     if not query:
-        return "No execution required for this task."
+        return "No execution required."
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             docker_response = await client.get(
@@ -192,6 +199,140 @@ async def mikasa_execute(query: str) -> str:
         return f"Execution unavailable: {str(e)}"
 
 # ─────────────────────────────────────────
+# Levi — Security Auditor
+# Checks security posture of the homelab
+# ─────────────────────────────────────────
+async def levi_audit(query: str) -> str:
+    if not query:
+        return "No security audit required."
+    try:
+        findings = []
+
+        # Check exposed ports via docker
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                docker_response = await client.get(
+                    f"http://{AGENT_HOST}:{AGENT_PORT}/tools/docker",
+                    headers={"X-API-Key": AGENT_API_KEY}
+                )
+                docker_data = docker_response.json()
+                findings.append(f"Container exposure:\n{docker_data.get('result', 'unavailable')}")
+            except Exception as e:
+                findings.append(f"Container check failed: {e}")
+
+        # Check API key health
+        api_checks = [
+            ("RAG Pipeline", f"http://{RAG_HOST}:{RAG_PORT}/health", None),
+            ("Agent API", f"http://{AGENT_HOST}:{AGENT_PORT}/health", None),
+        ]
+        for name, url, key in api_checks:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    r = await client.get(url)
+                    findings.append(f"{name}: HTTP {r.status_code} - {'OK' if r.status_code == 200 else 'ISSUE'}")
+            except Exception as e:
+                findings.append(f"{name}: Unreachable - {e}")
+
+        # Auth check — verify endpoints reject bad keys
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.post(
+                    f"http://{RAG_HOST}:{RAG_PORT}/query",
+                    json={"question": "test"},
+                    headers={"X-API-Key": "bad-key"}
+                )
+                if r.status_code == 403:
+                    findings.append("API auth enforcement: PASS - unauthorized requests rejected")
+                else:
+                    findings.append(f"API auth enforcement: WARN - returned {r.status_code} for bad key")
+        except Exception as e:
+            findings.append(f"Auth check failed: {e}")
+
+        # Use LLM to analyze findings
+        findings_text = "\n".join(findings)
+        prompt = f"""You are Levi, a security auditor. Analyze these security findings for the homelab:
+
+{findings_text}
+
+Query: {query}
+
+Provide a concise security assessment with any risks and recommendations."""
+
+        analysis = invoke_llm(prompt, BEDROCK_PLAN_MODEL)
+        return f"Security Findings:\n{findings_text}\n\nAnalysis:\n{analysis}"
+
+    except Exception as e:
+        return f"Security audit error: {str(e)}"
+
+# ─────────────────────────────────────────
+# Eren — DevOps Engineer
+# Checks CI/CD, git, deployment health
+# ─────────────────────────────────────────
+async def eren_check(query: str) -> str:
+    if not query:
+        return "No DevOps check required."
+    try:
+        findings = []
+
+        # Check all service health endpoints
+        services = [
+            ("RAG Pipeline",  f"http://{RAG_HOST}:{RAG_PORT}/health",  RAG_API_KEY),
+            ("Agent API",     f"http://{AGENT_HOST}:{AGENT_PORT}/health", AGENT_API_KEY),
+            ("Orchestrator",  f"http://localhost:8002/health", None),
+        ]
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            for name, url, key in services:
+                try:
+                    headers = {"X-API-Key": key} if key else {}
+                    r = await client.get(url, headers=headers)
+                    findings.append(f"{name}: {'HEALTHY' if r.status_code == 200 else 'DEGRADED'} (HTTP {r.status_code})")
+                except Exception as e:
+                    findings.append(f"{name}: UNREACHABLE - {e}")
+
+        # Check Prometheus targets
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.get("http://homelab-prometheus:9090/api/v1/targets")
+                if r.status_code == 200:
+                    data = r.json()
+                    active = data.get("data", {}).get("activeTargets", [])
+                    up = sum(1 for t in active if t.get("health") == "up")
+                    total = len(active)
+                    findings.append(f"Prometheus targets: {up}/{total} UP")
+                else:
+                    findings.append("Prometheus: unreachable")
+        except Exception as e:
+            findings.append(f"Prometheus check failed: {e}")
+
+        # Check system resources for DevOps concerns
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                r = await client.get(
+                    f"http://{AGENT_HOST}:{AGENT_PORT}/tools/system",
+                    headers={"X-API-Key": AGENT_API_KEY}
+                )
+                system_data = r.json()
+                findings.append(f"System resources:\n{system_data.get('result', 'unavailable')}")
+            except Exception as e:
+                findings.append(f"System check failed: {e}")
+
+        findings_text = "\n".join(findings)
+        prompt = f"""You are Eren, a DevOps engineer. Analyze these infrastructure findings:
+
+{findings_text}
+
+Query: {query}
+
+Provide a concise DevOps status report with any issues and recommended actions."""
+
+        analysis = invoke_llm(prompt, BEDROCK_PLAN_MODEL)
+        return f"DevOps Findings:\n{findings_text}\n\nAnalysis:\n{analysis}"
+
+    except Exception as e:
+        return f"DevOps check error: {str(e)}"
+
+# ─────────────────────────────────────────
 # Main orchestrator
 # ─────────────────────────────────────────
 async def run_multiagent(task: str):
@@ -205,80 +346,86 @@ async def run_multiagent(task: str):
     await asyncio.sleep(0.5)
 
     plan = await tribal_chief_plan(task)
+    results = {}
 
     yield AgentEvent(
         agent="tribal_chief",
         status=AgentStatus.ACTIVE,
         message=plan.get("plan", "Planning complete"),
         data=plan,
-        handoff_to="nezuko" if plan.get("needs_nezuko") else "mikasa"
+        handoff_to="nezuko" if plan.get("needs_nezuko") else
+                   "mikasa" if plan.get("needs_mikasa") else
+                   "levi" if plan.get("needs_levi") else
+                   "eren" if plan.get("needs_eren") else "tribal_chief"
     )
     await asyncio.sleep(0.5)
 
-    nezuko_result = "No search performed."
+    # Nezuko
     if plan.get("needs_nezuko") and plan.get("nezuko_query"):
-        yield AgentEvent(
-            agent="nezuko",
-            status=AgentStatus.THINKING,
-            message="Entering the archive... searching knowledge base..."
-        )
+        yield AgentEvent(agent="nezuko", status=AgentStatus.THINKING,
+            message="Entering the archive... searching knowledge base...")
+        await asyncio.sleep(0.5)
+        yield AgentEvent(agent="nezuko", status=AgentStatus.ACTIVE,
+            message=f"Searching for: {plan['nezuko_query']}")
+        results["nezuko"] = await nezuko_search(plan["nezuko_query"])
+        next_agent = "mikasa" if plan.get("needs_mikasa") else "levi" if plan.get("needs_levi") else "eren" if plan.get("needs_eren") else "tribal_chief"
+        yield AgentEvent(agent="nezuko", status=AgentStatus.COMPLETE,
+            message="Search complete. Passing findings forward.",
+            data={"result": results["nezuko"][:200] + "..." if len(results["nezuko"]) > 200 else results["nezuko"]},
+            handoff_to=next_agent)
         await asyncio.sleep(0.5)
 
-        yield AgentEvent(
-            agent="nezuko",
-            status=AgentStatus.ACTIVE,
-            message=f"Searching for: {plan['nezuko_query']}"
-        )
-
-        nezuko_result = await nezuko_search(plan["nezuko_query"])
-
-        yield AgentEvent(
-            agent="nezuko",
-            status=AgentStatus.COMPLETE,
-            message="Search complete. Handing findings to Mikasa.",
-            data={"result": nezuko_result[:200] + "..." if len(nezuko_result) > 200 else nezuko_result},
-            handoff_to="mikasa" if plan.get("needs_mikasa") else "tribal_chief"
-        )
-        await asyncio.sleep(0.5)
-
-    mikasa_result = "No execution performed."
+    # Mikasa
     if plan.get("needs_mikasa") and plan.get("mikasa_query"):
-        yield AgentEvent(
-            agent="mikasa",
-            status=AgentStatus.THINKING,
-            message="Entering the operations bay... running infrastructure checks..."
-        )
+        yield AgentEvent(agent="mikasa", status=AgentStatus.THINKING,
+            message="Entering the operations bay... running infrastructure checks...")
+        await asyncio.sleep(0.5)
+        yield AgentEvent(agent="mikasa", status=AgentStatus.ACTIVE,
+            message="Checking container status and system metrics...")
+        results["mikasa"] = await mikasa_execute(plan["mikasa_query"])
+        next_agent = "levi" if plan.get("needs_levi") else "eren" if plan.get("needs_eren") else "tribal_chief"
+        yield AgentEvent(agent="mikasa", status=AgentStatus.COMPLETE,
+            message="Execution complete. Passing results forward.",
+            data={"result": results["mikasa"][:200] + "..." if len(results["mikasa"]) > 200 else results["mikasa"]},
+            handoff_to=next_agent)
         await asyncio.sleep(0.5)
 
-        yield AgentEvent(
-            agent="mikasa",
-            status=AgentStatus.ACTIVE,
-            message="Checking container status and system metrics..."
-        )
-
-        mikasa_result = await mikasa_execute(plan["mikasa_query"])
-
-        yield AgentEvent(
-            agent="mikasa",
-            status=AgentStatus.COMPLETE,
-            message="Execution complete. Returning results to Tribal Chief.",
-            data={"result": mikasa_result[:200] + "..." if len(mikasa_result) > 200 else mikasa_result},
-            handoff_to="tribal_chief"
-        )
+    # Levi
+    if plan.get("needs_levi") and plan.get("levi_query"):
+        yield AgentEvent(agent="levi", status=AgentStatus.THINKING,
+            message="Initiating security audit... scanning the perimeter...")
+        await asyncio.sleep(0.5)
+        yield AgentEvent(agent="levi", status=AgentStatus.ACTIVE,
+            message=f"Auditing: {plan['levi_query']}")
+        results["levi"] = await levi_audit(plan["levi_query"])
+        next_agent = "eren" if plan.get("needs_eren") else "tribal_chief"
+        yield AgentEvent(agent="levi", status=AgentStatus.COMPLETE,
+            message="Security audit complete. Reporting to Tribal Chief.",
+            data={"result": results["levi"][:200] + "..." if len(results["levi"]) > 200 else results["levi"]},
+            handoff_to=next_agent)
         await asyncio.sleep(0.5)
 
-    yield AgentEvent(
-        agent="tribal_chief",
-        status=AgentStatus.THINKING,
-        message=f"All agents reporting in [{mode}]... synthesizing final answer..."
-    )
+    # Eren
+    if plan.get("needs_eren") and plan.get("eren_query"):
+        yield AgentEvent(agent="eren", status=AgentStatus.THINKING,
+            message="Checking deployment pipeline... reviewing infrastructure health...")
+        await asyncio.sleep(0.5)
+        yield AgentEvent(agent="eren", status=AgentStatus.ACTIVE,
+            message=f"Checking: {plan['eren_query']}")
+        results["eren"] = await eren_check(plan["eren_query"])
+        yield AgentEvent(agent="eren", status=AgentStatus.COMPLETE,
+            message="DevOps check complete. Reporting to Tribal Chief.",
+            data={"result": results["eren"][:200] + "..." if len(results["eren"]) > 200 else results["eren"]},
+            handoff_to="tribal_chief")
+        await asyncio.sleep(0.5)
+
+    # Tribal Chief synthesizes
+    yield AgentEvent(agent="tribal_chief", status=AgentStatus.THINKING,
+        message=f"All agents reporting in [{mode}]... synthesizing final answer...")
     await asyncio.sleep(0.5)
 
-    final_answer = await tribal_chief_synthesize(task, nezuko_result, mikasa_result)
+    final_answer = await tribal_chief_synthesize(task, results)
 
-    yield AgentEvent(
-        agent="tribal_chief",
-        status=AgentStatus.COMPLETE,
+    yield AgentEvent(agent="tribal_chief", status=AgentStatus.COMPLETE,
         message="Analysis complete.",
-        data={"final_answer": final_answer}
-    )
+        data={"final_answer": final_answer})

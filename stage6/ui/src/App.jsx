@@ -16,9 +16,9 @@ const AGENTS = {
     role: 'Researcher',
     color: '#f472b6',
     sprite: 'employee-2',
-    deskX: 37.9,
-    deskY: 68.2,
-    deskFacing: 'rear-right',
+    deskX: 25.0,
+    deskY: 70.5,
+    deskFacing: 'rear-left',
     voiceId: 'EXAVITQu4vr4xnSDxMaL',
   },
   mikasa: {
@@ -26,10 +26,30 @@ const AGENTS = {
     role: 'Executor',
     color: '#ef4444',
     sprite: 'security-audit-1',
-    deskX: 65.9,
-    deskY: 75.8,
-    deskFacing: 'rear-right',
+    deskX: 52.0,
+    deskY: 80.5,
+    deskFacing: 'rear-left',
     voiceId: 'Xb7hH8MSUJpSbSDYk0k2',
+  },
+  levi: {
+    name: 'Levi',
+    role: 'Security',
+    color: '#22c55e',
+    sprite: 'dev-1',
+    deskX: 37.0,
+    deskY: 66.5,
+    deskFacing: 'rear-right',
+    voiceId: 'nPczCjzI2devNBz1zQrb',
+  },
+  eren: {
+    name: 'Eren',
+    role: 'DevOps',
+    color: '#f59e0b',
+    sprite: 'explore-1',
+    deskX: 66.5,
+    deskY: 74.5,
+    deskFacing: 'rear-right',
+    voiceId: 'IKne3meq5aSn9XLyUdCD',
   },
 }
 
@@ -68,6 +88,26 @@ const WALK_PATHS = {
   'tribal_chief-from-mikasa': [
     { x: 68.7, y: 66.2, facing: 'rear-left' },
     { x: 59.5, y: 57.1, facing: 'rear-left' },
+    { x: 48.9, y: 52.9, facing: 'rear-left' },
+  ],
+  'tribal_chief-to-levi': [
+    { x: 55.0, y: 62.0, facing: 'rear-right' },
+    { x: 57.0, y: 70.0, facing: 'rear-right' },
+    { x: 55.2, y: 78.7, facing: 'front-right' },
+  ],
+  'tribal_chief-from-levi': [
+    { x: 57.0, y: 70.0, facing: 'rear-left' },
+    { x: 53.0, y: 62.0, facing: 'rear-left' },
+    { x: 48.9, y: 52.9, facing: 'rear-left' },
+  ],
+  'tribal_chief-to-eren': [
+    { x: 54.0, y: 60.0, facing: 'rear-right' },
+    { x: 58.0, y: 67.0, facing: 'rear-right' },
+    { x: 59.0, y: 73.7, facing: 'front-right' },
+  ],
+  'tribal_chief-from-eren': [
+    { x: 56.0, y: 65.0, facing: 'rear-left' },
+    { x: 52.0, y: 59.0, facing: 'rear-left' },
     { x: 48.9, y: 52.9, facing: 'rear-left' },
   ],
 }
@@ -141,7 +181,7 @@ function Character({ agentKey, status, position, facing, scale }) {
           color: cfg.color, fontWeight: 700, display: 'block',
           textShadow: '0 0 8px rgba(0,0,0,1), 0 1px 4px rgba(0,0,0,1)',
         }}>
-          {cfg.name}
+          {cfg.name} <span style={{fontSize: Math.max(7, 9 * scale), opacity: 0.8}}>({cfg.role})</span>
         </div>
       </div>
       <img src={getSpriteSrc(cfg.sprite, facing)} alt={cfg.name}
@@ -195,16 +235,20 @@ function MicButton({ listening, onClick, disabled }) {
 }
 
 export default function App() {
-  const [statuses, setStatuses] = useState({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle' })
+  const [statuses, setStatuses] = useState({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle' })
   const [positions, setPositions] = useState({
     tribal_chief: { x: AGENTS.tribal_chief.deskX, y: AGENTS.tribal_chief.deskY },
     nezuko: { x: AGENTS.nezuko.deskX, y: AGENTS.nezuko.deskY },
     mikasa: { x: AGENTS.mikasa.deskX, y: AGENTS.mikasa.deskY },
+    levi: { x: AGENTS.levi.deskX, y: AGENTS.levi.deskY },
+    eren: { x: AGENTS.eren.deskX, y: AGENTS.eren.deskY },
   })
   const [facings, setFacings] = useState({
     tribal_chief: AGENTS.tribal_chief.deskFacing,
     nezuko: AGENTS.nezuko.deskFacing,
     mikasa: AGENTS.mikasa.deskFacing,
+    levi: AGENTS.levi.deskFacing,
+    eren: AGENTS.eren.deskFacing,
   })
   const [orb, setOrb] = useState({ visible: false, x: 0, y: 0, color: '#fff' })
   const [log, setLog] = useState([])
@@ -312,8 +356,8 @@ export default function App() {
   }, [listening, setupRecognition])
 
   const addLog = useCallback((agent, msg) => {
-    const colors = { tribal_chief: '#4f8ef7', nezuko: '#f472b6', mikasa: '#ef4444', system: '#6b7280' }
-    const names = { tribal_chief: 'Tribal Chief', nezuko: 'Nezuko', mikasa: 'Mikasa', system: 'SYSTEM' }
+    const colors = { tribal_chief: '#4f8ef7', nezuko: '#f472b6', mikasa: '#ef4444', levi: '#22c55e', eren: '#f59e0b', system: '#6b7280' }
+    const names = { tribal_chief: 'Tribal Chief', nezuko: 'Nezuko', mikasa: 'Mikasa', levi: 'Levi', eren: 'Eren', system: 'SYSTEM' }
     setLog(prev => [...prev.slice(-60), {
       id: Date.now() + Math.random(), agent, msg,
       color: colors[agent] || '#6b7280',
@@ -377,6 +421,8 @@ export default function App() {
           if (status === 'thinking' && agent === 'tribal_chief') speak(message, 'tribal_chief')
           if (status === 'active' && agent === 'nezuko') speak(message, 'nezuko')
           if (status === 'active' && agent === 'mikasa') speak(message, 'mikasa')
+          if (status === 'thinking' && agent === 'levi') speak(message, 'levi')
+          if (status === 'thinking' && agent === 'eren') speak(message, 'eren')
           if (agent === 'tribal_chief' && status === 'active' && handoff_to && handoff_to !== 'tribal_chief') {
             const target = AGENTS[handoff_to]
             if (target) {
@@ -401,7 +447,7 @@ export default function App() {
               setFacings(f => ({ ...f, tribal_chief: AGENTS.tribal_chief.deskFacing }))
               setTimeout(done, 1100)
             })
-            enqueue(done => { setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle' }); usedVoiceRef.current = false; done() })
+            enqueue(done => { setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle' }); usedVoiceRef.current = false; done() })
           }
         }
       } catch (err) { console.error(err) }
@@ -417,16 +463,20 @@ export default function App() {
     setLog([])
     queueRef.current = []
     processingRef.current = false
-    setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle' })
+    setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle' })
     setPositions({
       tribal_chief: { x: AGENTS.tribal_chief.deskX, y: AGENTS.tribal_chief.deskY },
       nezuko: { x: AGENTS.nezuko.deskX, y: AGENTS.nezuko.deskY },
       mikasa: { x: AGENTS.mikasa.deskX, y: AGENTS.mikasa.deskY },
+      levi: { x: AGENTS.levi.deskX, y: AGENTS.levi.deskY },
+      eren: { x: AGENTS.eren.deskX, y: AGENTS.eren.deskY },
     })
     setFacings({
       tribal_chief: AGENTS.tribal_chief.deskFacing,
       nezuko: AGENTS.nezuko.deskFacing,
       mikasa: AGENTS.mikasa.deskFacing,
+      levi: AGENTS.levi.deskFacing,
+      eren: AGENTS.eren.deskFacing,
     })
     wsRef.current?.send(JSON.stringify({ task }))
     setTask('')
@@ -494,7 +544,7 @@ export default function App() {
       <div style={{ flex: 1, display: 'flex', gap: '10px', overflow: 'hidden', minHeight: 0 }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflow: 'hidden' }}>
           <div ref={roomRef} style={{
-            position: 'relative', width: '100%', paddingBottom: '75%',
+            position: 'relative', width: '100%', paddingBottom: '62%',
             borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(55,65,81,0.3)',
           }}>
             <img src={bgImage} alt="Office" draggable={false} style={{
@@ -581,7 +631,7 @@ export default function App() {
                 <div style={{ fontSize: 28, marginBottom: 8 }}>🎤</div>
                 <div style={{ marginBottom: 6 }}>Press the mic or type below</div>
                 <div style={{ fontSize: 9, color: '#1f2937' }}>
-                  Tribal Chief, Nezuko and Mikasa<br/>are standing by
+                  Tribal Chief, Nezuko, Mikasa,<br/>Levi and Eren are standing by
                 </div>
               </div>
             ) : (

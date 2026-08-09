@@ -8,8 +8,8 @@ from agents import run_multiagent, AgentEvent, AgentStatus
 
 app = FastAPI(
     title="Homelab Multi-Agent Orchestrator",
-    description="Tribal Chief, Nezuko, and Mikasa",
-    version="1.0.0"
+    description="Tribal Chief, Nezuko, Mikasa, Levi and Eren",
+    version="2.0.0"
 )
 
 app.add_middleware(
@@ -29,7 +29,7 @@ active_connections: list[WebSocket] = []
 def root():
     return {
         "service": "Homelab Multi-Agent Orchestrator",
-        "agents": ["Tribal Chief", "Nezuko", "Mikasa"],
+        "agents": ["Tribal Chief", "Nezuko", "Mikasa", "Levi", "Eren"],
         "status": "running"
     }
 
@@ -40,7 +40,9 @@ def health():
         "agents": {
             "tribal_chief": "ready",
             "nezuko": "ready",
-            "mikasa": "ready"
+            "mikasa": "ready",
+            "levi": "ready",
+            "eren": "ready"
         }
     }
 
@@ -52,7 +54,7 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_text(json.dumps({
             "agent": "system",
             "status": "connected",
-            "message": "Connected to Homelab AI Command Center. Tribal Chief, Nezuko, and Mikasa are standing by."
+            "message": "Connected to Homelab AI Command Center. Tribal Chief, Nezuko, Mikasa, Levi and Eren are standing by."
         }))
         while True:
             data = await websocket.receive_text()
