@@ -1,11 +1,12 @@
 import os
 import httpx
 import asyncio
+import boto3
+import json
 from langchain_ollama import OllamaLLM
 from enum import Enum
 from pydantic import BaseModel
 from typing import Optional
-import json
 
 # ─────────────────────────────────────────
 # Configuration
@@ -19,6 +20,10 @@ RAG_API_KEY   = os.getenv("RAG_API_KEY", "")
 AGENT_HOST    = os.getenv("AGENT_HOST", "homelab-agent")
 AGENT_PORT    = os.getenv("AGENT_PORT", "8001")
 AGENT_API_KEY = os.getenv("AGENT_API_KEY", "")
+USE_BEDROCK   = os.getenv("USE_BEDROCK", "false").lower() == "true"
+AWS_REGION    = os.getenv("AWS_REGION", "us-east-1")
+BEDROCK_PLAN_MODEL    = os.getenv("BEDROCK_PLAN_MODEL", "amazon.nova-micro-v1:0")
+BEDROCK_SYNTH_MODEL   = os.getenv("BEDROCK_SYNTH_MODEL", "anthropic.claude-haiku-4-5-20251001-v1:0")
 
 # ─────────────────────────────────────────
 # Agent status enum
@@ -31,7 +36,7 @@ class AgentStatus(str, Enum):
     ERROR    = "error"
 
 # ─────────────────────────────────────────
-# Event model — streamed to UI via WebSocket
+# Event model
 # ─────────────────────────────────────────
 class AgentEvent(BaseModel):
     agent: str
@@ -41,7 +46,7 @@ class AgentEvent(BaseModel):
     handoff_to: Optional[str] = None
 
 # ─────────────────────────────────────────
-# LLM
+# LLM clients
 # ─────────────────────────────────────────
 llm = OllamaLLM(
     base_url=f"http://{OLLAMA_HOST}:{OLLAMA_PORT}",
@@ -49,11 +54,42 @@ llm = OllamaLLM(
     temperature=0.1
 )
 
+def get_bedrock_client():
+    return boto3.client("bedrock-runtime", region_name=AWS_REGION)
+
+# ─────────────────────────────────────────
+# Bedrock invoke helpers
+# ─────────────────────────────────────────
+def bedrock_nova(prompt: str, model_id: str) -> str:
+    client = get_bedrock_client()
+    body = {
+        "messages": [{"role": "user", "content": [{"text": prompt}]}],
+        "inferenceConfig": {"maxTokens": 1000, "temperature": 0.1}
+    }
+    response = client.invoke_model(
+        modelId=model_id,
+        body=json.dumps(body)
+    )
+    result = json.loads(response["body"].read())
+    return result["output"]["message"]["content"][0]["text"].strip()
+
+def bedrock_haiku(prompt: str) -> str:
+    client = get_bedrock_client()
+    body = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 1000,
+        "temperature": 0.1,
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    response = client.invoke_model(
+        modelId=BEDROCK_SYNTH_MODEL,
+        body=json.dumps(body)
+    )
+    result = json.loads(response["body"].read())
+    return result["content"][0]["text"].strip()
+
 # ─────────────────────────────────────────
 # Tribal Chief — Planner
-# Receives task, creates execution plan,
-# delegates to Nezuko and Mikasa,
-# synthesizes final answer
 # ─────────────────────────────────────────
 async def tribal_chief_plan(task: str) -> dict:
     prompt = f"""You are Tribal Chief, a strategic AI planner. Analyze this task and decide which tools are needed.
@@ -73,14 +109,17 @@ Respond in this exact JSON format, nothing else:
     "plan": "one sentence describing your approach"
 }}"""
 
-    response = llm.invoke(prompt).strip()
     try:
+        if USE_BEDROCK:
+            response = bedrock_nova(prompt, BEDROCK_PLAN_MODEL)
+        else:
+            response = llm.invoke(prompt).strip()
         start = response.find("{")
         end = response.rfind("}") + 1
         if start >= 0 and end > start:
             return json.loads(response[start:end])
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Plan error: {e}")
     return {
         "needs_nezuko": True,
         "needs_mikasa": True,
@@ -103,11 +142,17 @@ Infrastructure status (from Mikasa):
 Provide a comprehensive, well-structured answer that directly addresses the question.
 Answer:"""
 
-    return llm.invoke(prompt).strip()
+    try:
+        if USE_BEDROCK:
+            return bedrock_haiku(prompt)
+        else:
+            return llm.invoke(prompt).strip()
+    except Exception as e:
+        print(f"Synthesize error: {e}")
+        return llm.invoke(prompt).strip()
 
 # ─────────────────────────────────────────
 # Nezuko — Retriever
-# Searches RAG knowledge base
 # ─────────────────────────────────────────
 async def nezuko_search(query: str) -> str:
     if not query:
@@ -126,7 +171,6 @@ async def nezuko_search(query: str) -> str:
 
 # ─────────────────────────────────────────
 # Mikasa — Executor
-# Runs infrastructure tools
 # ─────────────────────────────────────────
 async def mikasa_execute(query: str) -> str:
     if not query:
@@ -138,28 +182,25 @@ async def mikasa_execute(query: str) -> str:
                 headers={"X-API-Key": AGENT_API_KEY}
             )
             docker_data = docker_response.json()
-
             system_response = await client.get(
                 f"http://{AGENT_HOST}:{AGENT_PORT}/tools/system",
                 headers={"X-API-Key": AGENT_API_KEY}
             )
             system_data = system_response.json()
-
             return f"Container Status:\n{docker_data.get('result', 'unavailable')}\n\nSystem Metrics:\n{system_data.get('result', 'unavailable')}"
     except Exception as e:
         return f"Execution unavailable: {str(e)}"
 
 # ─────────────────────────────────────────
 # Main orchestrator
-# Runs the full multi-agent pipeline
-# Yields AgentEvents for WebSocket streaming
 # ─────────────────────────────────────────
 async def run_multiagent(task: str):
-    # ── Tribal Chief Plans ──
+    mode = "BEDROCK" if USE_BEDROCK else "LOCAL"
+
     yield AgentEvent(
         agent="tribal_chief",
         status=AgentStatus.THINKING,
-        message="Analyzing your request and forming a plan..."
+        message=f"Analyzing your request [{mode}] and forming a plan..."
     )
     await asyncio.sleep(0.5)
 
@@ -174,7 +215,6 @@ async def run_multiagent(task: str):
     )
     await asyncio.sleep(0.5)
 
-    # ── Nezuko Retrieves ──
     nezuko_result = "No search performed."
     if plan.get("needs_nezuko") and plan.get("nezuko_query"):
         yield AgentEvent(
@@ -201,7 +241,6 @@ async def run_multiagent(task: str):
         )
         await asyncio.sleep(0.5)
 
-    # ── Mikasa Executes ──
     mikasa_result = "No execution performed."
     if plan.get("needs_mikasa") and plan.get("mikasa_query"):
         yield AgentEvent(
@@ -228,11 +267,10 @@ async def run_multiagent(task: str):
         )
         await asyncio.sleep(0.5)
 
-    # ── Tribal Chief Synthesizes ──
     yield AgentEvent(
         agent="tribal_chief",
         status=AgentStatus.THINKING,
-        message="All agents reporting in... synthesizing final answer..."
+        message=f"All agents reporting in [{mode}]... synthesizing final answer..."
     )
     await asyncio.sleep(0.5)
 
