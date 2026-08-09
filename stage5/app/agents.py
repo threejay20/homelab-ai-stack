@@ -5,6 +5,7 @@ import boto3
 import json
 import subprocess
 from langchain_ollama import OllamaLLM
+from memory import save_conversation, load_recent_conversations, format_memory_context
 from enum import Enum
 from pydantic import BaseModel
 from typing import Optional
@@ -93,7 +94,11 @@ def invoke_llm(prompt: str, use_bedrock_model: str = None) -> str:
 # Tribal Chief — Planner + Synthesizer
 # ─────────────────────────────────────────
 async def tribal_chief_plan(task: str) -> dict:
-    prompt = f"""You are Tribal Chief, a strategic AI planner. Analyze this task and decide which agents are needed.
+    recent = load_recent_conversations()
+    memory_context = format_memory_context(recent)
+    memory_section = f"\n\n{memory_context}" if memory_context else ""
+
+    prompt = f"""You are Tribal Chief, a strategic AI planner. Analyze this task and decide which agents are needed.{memory_section}
 
 Task: {task}
 
@@ -470,6 +475,11 @@ async def run_multiagent(task: str):
     await asyncio.sleep(0.5)
 
     final_answer = await tribal_chief_synthesize(task, results)
+
+    # Save to memory
+    agents_used = [k for k, v in results.items() if v and v != "No search performed." and v != "No execution required." and v != "No security audit required." and v != "No DevOps check required."]
+    agents_used = ["tribal_chief"] + agents_used
+    save_conversation(task, plan, final_answer, agents_used, mode)
 
     yield AgentEvent(agent="tribal_chief", status=AgentStatus.COMPLETE,
         message="Analysis complete.",
