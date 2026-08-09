@@ -1,109 +1,62 @@
-# DevOps AI Agent
+# Stage 2.5 — DevOps AI Agent
 
-Autonomous agent that routes natural language questions to specialized
-tools and synthesizes grounded answers. Designed for infrastructure
-operations use cases — container status, system resources, and
-internal runbook retrieval.
+Single-agent system with dynamic tool routing. The LLM decides which tools to use, executes them, and synthesizes a grounded answer from real data.
 
-## Architecture
+## What It Does
 
-User Question
-│
-▼
-LLM Router (llama3.2:3b)
-Reads question intent,
-selects best tool
-│
-├──► rag_search ──► RAG Pipeline (Stage 2) ──► Document answer
-│
-├──► docker_status ──► Docker socket ──► Container state
-│
-└──► system_info ──► psutil ──► CPU / memory / disk
-│
-▼
-LLM Synthesizer
-Formats tool output
-into a clean answer
-│
-▼
-Final Answer
+Receives a natural language query, uses the LLM to select the appropriate tools (RAG search, Docker status, system metrics), executes them, and returns a synthesized answer grounded in actual infrastructure data.
+
+## Services
+
+| Service | Port | Purpose |
+|---|---|---|
+| Agent API | 8001 | FastAPI agent endpoint |
+| Socket Proxy | 2375 | Read-only Docker socket proxy |
+
+## Endpoints
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| /query | POST | Submit a query to the agent |
+| /tools/docker | GET | Docker container status |
+| /tools/system | GET | System resource metrics |
+| /health | GET | Health check |
 
 ## Tools
 
-| Tool | Trigger | Data Source |
+| Tool | Source | What it returns |
 |---|---|---|
-| `rag_search` | Procedural questions, how-to, troubleshooting | Stage 2 RAG pipeline |
-| `docker_status` | Container state, running services, ports | Host Docker socket |
-| `system_info` | CPU, memory, disk usage | psutil host metrics |
+| rag_search | Stage 2 RAG API | Knowledge base answers |
+| docker_status | Socket proxy | Running containers and status |
+| system_info | psutil | CPU, memory, disk metrics |
 
-## Design Decisions
+## Key Design Decisions
 
-**Two-step LLM pattern** — the agent makes two LLM calls per request:
-one to route (select the right tool) and one to synthesize (format
-the answer). Separating these concerns produces more reliable routing
-and cleaner output than asking a single prompt to do both.
+**Docker socket proxy instead of raw socket mount** — Mounting `/var/run/docker.sock` directly into a container gives it full Docker daemon access — the ability to start, stop, delete containers, pull images, and escape to the host. The socket proxy (tecnativa/docker-socket-proxy) acts as a firewall, allowing only CONTAINERS, INFO, PING, and VERSION API calls. The agent can see your infrastructure but cannot touch it.
 
-**Python routing over ReAct** — smaller local models (3-8B parameters)
-struggle with strict ReAct format compliance. Handling tool selection
-in Python and reserving LLM calls for reasoning tasks produces
-consistent results on CPU-only hardware without requiring larger
-models or external APIs.
+**Two-step LLM routing** — Tool selection and answer synthesis are two separate LLM calls. The first call returns structured JSON (which tool to use, what query to pass). The second call receives the tool output and synthesizes a natural language answer. Separating these improves reliability — a smaller focused prompt for routing, a richer prompt for synthesis.
 
-**Docker-out-of-Docker** — the agent container accesses host container
-state via a Unix socket mount (`/var/run/docker.sock`). No separate
-Docker daemon runs inside the container — it borrows the host daemon
-directly. Same pattern used by Portainer.
+**DOCKER_HOST in compose environment block** — Setting DOCKER_HOST in the .env file causes build-time errors because Docker tries to use the proxy before it exists. Setting it in the docker-compose.yml environment block means it is only applied at runtime, after the proxy is running.
 
-**RAG as a microservice** — the agent calls the Stage 2 RAG pipeline
-over HTTP rather than embedding retrieval logic directly. This keeps
-each service independently deployable and testable, and allows the
-RAG pipeline to be upgraded without rebuilding the agent.
+**phi3:mini for routing** — Tool selection uses phi3:mini (faster, smaller) rather than llama3.2:3b. The routing decision is a simple classification task that does not need a large model. Synthesis uses llama3.2:3b for better quality answers.
 
-## API Reference
+## AWS Equivalent
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /health | Tool connectivity check |
-| POST | /agent | Natural language question → grounded answer |
-| GET | /tools/docker | Call docker_status directly |
-| GET | /tools/system | Call system_info directly |
-| POST | /tools/rag | Call rag_search directly |
+| Local | AWS |
+|---|---|
+| Agent API | Amazon Bedrock Agents |
+| Tool routing | Bedrock Agent action groups |
+| RAG search tool | Bedrock Knowledge Base retrieval |
+| Docker socket proxy | AWS Systems Manager (read-only) |
+| psutil metrics | Amazon CloudWatch agent |
 
 ## Quick Start
 
 ```bash
-# Stage 1 and Stage 2 must be running first
-cd stage2.5
-cp .env.example .env
-docker compose build
 docker compose up -d
-```
 
-```bash
-curl -X POST http://localhost:8001/agent \
+curl -X POST http://localhost:8001/query \
+  -H "X-API-Key: homelab-agent-key-2024" \
   -H "Content-Type: application/json" \
-  -d '{"question": "What containers are running and how is memory usage?"}'
+  -d '{"question": "How many containers are running?"}'
 ```
-
-## Prerequisites
-
-- Stage 1 running — provides Ollama LLM inference
-- Stage 2 running — provides RAG pipeline for document search
-
-## Performance
-
-| Operation | Model | Latency |
-|---|---|---|
-| Tool routing | llama3.2:3b (CPU) | ~5-10s |
-| RAG retrieval + synthesis | llama3.2:3b + phi3:mini (CPU) | ~60-80s |
-| Docker/system tools | llama3.2:3b (CPU) | ~10-15s |
-
-## AWS Bedrock Equivalent
-
-| Local Component | Bedrock Equivalent |
-|---|---|
-| LLM router (llama3.2:3b) | Bedrock InvokeModel — Claude Haiku |
-| rag_search tool | Bedrock Knowledge Bases RetrieveAndGenerate |
-| docker_status tool | Lambda function + ECS DescribeTasks API |
-| system_info tool | Lambda function + CloudWatch GetMetricData |
-| Agent orchestration | Bedrock Agents + Action Groups |

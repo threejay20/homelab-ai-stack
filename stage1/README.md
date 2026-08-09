@@ -1,87 +1,61 @@
-# Local AI Infrastructure Stack
+# Stage 1 — Local AI Serving Stack
 
-Production-grade local AI infrastructure built on Docker and WSL2,
-designed to mirror enterprise MLOps deployment patterns at reduced scale.
+The foundation layer. Everything else in the lab depends on this stage being healthy.
 
-## Architecture
+## What It Does
 
-┌─────────────────────────────────────────────┐
-│              Docker Network                  │
-│                                             │
-│  ┌──────────┐    ┌─────────────────────┐   │
-│  │  Ollama  │    │       MLflow        │   │
-│  │ phi3:mini│    │  Experiment Tracker │   │
-│  │ port 11434    │  Model Registry     │   │
-│  └──────────┘    │  port 5000          │   │
-│                  └──────────┬──────────┘   │
-│  ┌──────────┐               │              │
-│  │Portainer │    ┌──────────▼──────────┐   │
-│  │Dashboard │    │     PostgreSQL      │   │
-│  │port 9000 │    │   MLflow Backend    │   │
-│  └──────────┘    │   port 5432         │   │
-│                  └─────────────────────┘   │
-└─────────────────────────────────────────────┘
-## Stack
+Serves two local LLMs via Ollama, tracks experiments via MLflow backed by PostgreSQL, and provides container management via Portainer. No cloud dependency — all inference runs on CPU.
 
-| Service | Version | Purpose |
+## Services
+
+| Service | Port | Purpose |
 |---|---|---|
-| Ollama | 0.24.0 | Local LLM runtime — CPU inference |
-| MLflow | 2.11.1 | Experiment tracking and model registry |
-| PostgreSQL | 15 | MLflow persistence backend |
-| Portainer CE | 2.39.2 | Container orchestration dashboard |
+| Ollama | 11434 | LLM inference server |
+| MLflow | 5000 | Experiment tracking UI + API |
+| PostgreSQL | 5432 | MLflow backend store |
+| Portainer | 9000 | Container management UI |
 
-## Design Decisions
+## Models
 
-**Custom MLflow image** — Base MLflow image does not include the
-psycopg2 PostgreSQL driver. A Dockerfile extending the base image
-installs the dependency at build time, keeping the compose file clean.
+| Model | Size | Use case |
+|---|---|---|
+| llama3.2:3b | 2.0GB | Primary reasoning, synthesis |
+| phi3:mini | 2.3GB | Fast routing, tool selection |
 
-**Healthcheck-gated startup** — MLflow depends on PostgreSQL with
-a healthcheck condition, preventing connection failures during
-cold starts.
+## Key Design Decisions
 
-**Memory limits per container** — Explicit `mem_limit` constraints
-prevent any single service from exhausting available RAM on a
-resource-constrained host.
+**Custom MLflow Dockerfile** — The official MLflow image does not include psycopg2 (PostgreSQL driver). Rather than installing it at runtime, it is baked into a custom image at build time. This means the container starts in seconds rather than downloading packages on every restart.
 
-**Named Docker network** — Services communicate by container name
-over an isolated bridge network, eliminating hardcoded IPs.
+**Named volumes over bind mounts** — Ollama models (~4GB) and PostgreSQL data persist in named Docker volumes. This means `docker compose down` does not destroy data, only `docker compose down -v` does. Intentional tradeoff documented.
 
-## Prerequisites
+**Healthcheck on PostgreSQL** — MLflow will fail to start if PostgreSQL is not ready. A healthcheck on the postgres service combined with `depends_on: condition: service_healthy` on MLflow ensures correct startup order without arbitrary sleep timers.
 
-- WSL2 (Ubuntu 22.04) on Windows 11
-- Docker Desktop 27+
-- 16GB RAM minimum recommended
+**CPU-only inference** — The lab hardware (Intel i7-1260P, 16GB RAM) has no discrete GPU. Ollama is configured for CPU inference. llama3.2:3b produces responses in 15-30 seconds on this hardware, which is acceptable for agentic workflows where the bottleneck is usually I/O not generation speed.
+
+## AWS Equivalent
+
+| Local | AWS |
+|---|---|
+| Ollama + llama3.2:3b | Amazon Bedrock InvokeModel (Llama, Claude) |
+| MLflow tracking | Amazon SageMaker Experiments |
+| PostgreSQL backend | Amazon RDS PostgreSQL |
+| Portainer | Amazon ECS console / AWS Systems Manager |
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/homelab-ai-stack.git
-cd homelab-ai-stack/stage1
-cp .env.example .env
-docker network create homelab-network
-docker compose build
 docker compose up -d
-docker exec -it homelab-ollama ollama pull phi3:mini
+docker compose ps
 ```
 
-## Service Endpoints
+Pull models (first run only):
+```bash
+docker exec homelab-ollama ollama pull llama3.2:3b
+docker exec homelab-ollama ollama pull phi3:mini
+```
 
-| Service | URL |
-|---|---|
-| MLflow UI | http://localhost:5000 |
-| Portainer | http://localhost:9000 |
-| Ollama API | http://localhost:11434 |
-
-## Inference Benchmark
-
-| Model | Parameters | Size | Hardware | Throughput |
-|---|---|---|---|---|
-| Phi-3 Mini | 3.8B | 2.2GB | Intel i7-1260P (CPU) | ~15 tok/s |
-
-## Roadmap
-
-- Stage 2 — RAG pipeline with Qdrant and LangChain
-- Stage 3 — CI/CD pipeline for model deployment
-- Stage 4 — Prometheus + Grafana + Evidently AI observability
-- Stage 5 — Multi-agent orchestration with CrewAI
+Verify inference:
+```bash
+curl http://localhost:11434/api/generate \
+  -d '{"model":"llama3.2:3b","prompt":"Hello","stream":false}'
+```

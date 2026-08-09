@@ -1,105 +1,63 @@
-# Multi-Agent Orchestration System
+# Stage 5 — Multi-Agent Orchestration
 
-Three specialized AI agents working in coordination to answer
-infrastructure questions. ChiChi plans and synthesizes, Nezuko
-retrieves knowledge, Mikasa executes infrastructure tools.
-Live WebSocket streaming for real-time UI updates.
+Three specialized AI agents collaborate in real time to answer questions. Tribal Chief plans and synthesizes. Nezuko searches the knowledge base. Mikasa inspects infrastructure. All activity streams live to the UI via WebSocket.
+
+## What It Does
+
+Receives a task, uses Tribal Chief to create an execution plan, delegates to Nezuko and Mikasa in parallel or sequence based on the plan, and synthesizes a final answer from all results. Every step streams as a typed event to connected WebSocket clients.
+
+## Services
+
+| Service | Port | Purpose |
+|---|---|---|
+| Agent Orchestrator | 8002 | WebSocket + HTTP task endpoint |
 
 ## Agents
 
-| Agent | Role | Personality |
+| Agent | Role | Tools |
 |---|---|---|
-| ChiChi | Planner + Synthesizer | Strategic, calm, delegates and assembles final answers |
-| Nezuko | Retriever | Fast, precise, searches the RAG knowledge base |
-| Mikasa | Executor | Reliable, direct, runs Docker and system tools |
+| Tribal Chief | Planner + Synthesizer | Plans task, delegates, synthesizes final answer |
+| Nezuko | Retriever | Queries RAG knowledge base |
+| Mikasa | Executor | Docker status, system metrics |
 
-## Architecture
+## Endpoints
 
-User Task
-│
-▼
-ChiChi (Planner)
-Analyzes task, decides which agents are needed
-│
-├──► Nezuko (Retriever)
-│    Searches RAG pipeline for relevant documents
-│
-└──► Mikasa (Executor)
-Checks container status and system metrics
-│
-▼
-ChiChi (Synthesizer)
-Combines all findings into final answer
-│
-▼
-WebSocket stream → Live UI
+| Endpoint | Protocol | Purpose |
+|---|---|---|
+| /ws | WebSocket | Real-time agent event streaming |
+| /task | POST HTTP | Submit task, receive all events |
+| /health | GET HTTP | Agent readiness check |
 
-## WebSocket Protocol
+## Key Design Decisions
 
-Connect to `ws://localhost:8002/ws` and send:
-```json
-{"task": "your question here"}
-```
+**Async generator pipeline** — The orchestrator is an async generator function that yields AgentEvent objects. The WebSocket handler iterates over this generator and sends each event as it is produced. This means the UI receives updates in real time as each agent activates, rather than waiting for the full pipeline to complete.
 
-Receive a stream of agent events:
-```json
-{"agent": "chichi", "status": "thinking", "message": "..."}
-{"agent": "nezuko", "status": "active", "message": "...", "handoff_to": "mikasa"}
-{"agent": "mikasa", "status": "complete", "message": "...", "data": {...}}
-{"agent": "chichi", "status": "complete", "message": "...", "data": {"final_answer": "..."}}
-{"agent": "system", "status": "done", "message": "Task complete."}
-```
+**Typed AgentEvent model** — Every event has a defined schema: agent name, status (thinking/active/complete/error), message, optional data payload, and optional handoff_to field. The UI uses handoff_to to trigger character walking animations. Typed events make the contract between backend and frontend explicit and testable.
 
-## Agent Status Values
+**Separate system prompts per agent** — Each agent has a distinct system prompt that defines its role, constraints, and output format. Tribal Chief is instructed to return structured JSON for the plan. Nezuko is instructed to summarize retrieved context concisely. Mikasa is instructed to report infrastructure facts without interpretation.
 
-| Status | Meaning |
+**Responsibility boundaries** — Tribal Chief never calls tools directly. Mikasa never synthesizes or interprets. Nezuko never executes. These boundaries are enforced by prompt design and make the system easier to debug — if retrieval is wrong, the problem is in Nezuko's prompt or the knowledge base, not elsewhere.
+
+## AWS Equivalent
+
+| Local | AWS |
 |---|---|
-| `idle` | Agent is dormant, waiting |
-| `thinking` | Agent is reasoning about the task |
-| `active` | Agent is executing its role |
-| `complete` | Agent finished, handing off |
-| `error` | Agent encountered an error |
-
-## API Reference
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /health | All agent readiness check |
-| POST | /task | Run pipeline via HTTP, returns all events |
-| WS | /ws | WebSocket endpoint for live streaming |
+| Tribal Chief | Bedrock Agent (orchestrator) |
+| Nezuko | Bedrock Knowledge Base retrieval action |
+| Mikasa | Bedrock Agent action group + Lambda |
+| WebSocket streaming | API Gateway WebSocket API |
+| AgentEvent schema | Bedrock agent trace events |
 
 ## Quick Start
 
 ```bash
-cd stage5
-cp .env.example .env
-docker compose build
 docker compose up -d
+
+# Test via HTTP
+curl -X POST http://localhost:8002/task \
+  -H "Content-Type: application/json" \
+  -d '{"task": "How is my infrastructure doing?"}'
+
+# Test via WebSocket (requires wscat)
+wscat -c ws://localhost:8002/ws
 ```
-
-Prerequisites: Stage 1, 2, and 2.5 must be running.
-
-## Design Decisions
-
-**Async generator pipeline** — `run_multiagent` is an async generator
-that yields events as they happen. FastAPI streams these directly over
-WebSocket without buffering the full response. This is what enables
-real-time UI updates.
-
-**ChiChi plans in JSON** — The planner returns structured JSON
-deciding which agents to invoke. Python handles the routing logic,
-not the LLM. Same pattern as Stage 2.5 — reliable routing without
-strict format compliance issues.
-
-**Non-blocking handoffs** — Each agent awaits its predecessor before
-activating. The pipeline is sequential by design — infrastructure
-questions need context from retrieval before execution makes sense.
-
-## AWS Bedrock Equivalent
-
-| Local Component | Bedrock Equivalent |
-|---|---|
-| ChiChi (Planner) | Bedrock Agents supervisor mode |
-| Nezuko (Retriever) | Bedrock Knowledge Bases |
-| Mikasa (Executor) | Bedrock Agents action groups |
-| WebSocket stream | API Gateway WebSocket API |
