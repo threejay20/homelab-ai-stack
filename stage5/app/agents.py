@@ -6,6 +6,7 @@ import json
 import subprocess
 from langchain_ollama import OllamaLLM
 from memory import save_conversation, load_recent_conversations, format_memory_context
+from guardrails import check_input, check_output, GuardrailBlocked
 from enum import Enum
 from pydantic import BaseModel
 from typing import Optional
@@ -378,6 +379,17 @@ Provide a concise DevOps status report with any issues and recommended actions."
 async def run_multiagent(task: str):
     mode = "BEDROCK" if USE_BEDROCK else "LOCAL"
 
+    # Apply guardrail to user input before processing
+    try:
+        task = check_input(task)
+    except GuardrailBlocked as e:
+        yield AgentEvent(
+            agent="tribal_chief",
+            status=AgentStatus.ERROR,
+            message=e.message
+        )
+        return
+
     yield AgentEvent(
         agent="tribal_chief",
         status=AgentStatus.THINKING,
@@ -475,6 +487,12 @@ async def run_multiagent(task: str):
     await asyncio.sleep(0.5)
 
     final_answer = await tribal_chief_synthesize(task, results)
+
+    # Apply guardrail to output
+    try:
+        final_answer = check_output(final_answer)
+    except GuardrailBlocked as e:
+        final_answer = e.message
 
     # Save to memory
     agents_used = [k for k, v in results.items() if v and v != "No search performed." and v != "No execution required." and v != "No security audit required." and v != "No DevOps check required."]
