@@ -147,7 +147,7 @@ Respond in this exact JSON format with no other text:
             # Keyword-based routing override — local LLM is unreliable
             task_lower = task.lower()
             security_keywords = ["security", "audit", "vulnerabil", "port", "exposure", "threat", "firewall", "api key", "breach", "hack", "pentest"]
-            devops_keywords = ["health", "service", "pipeline", "deploy", "ci/cd", "status", "endpoint", "uptime"]
+            devops_keywords = ["health check", "service health", "pipeline", "deploy", "ci/cd", "endpoint", "uptime"]
             infra_keywords = ["container", "docker", "memory", "cpu", "disk", "metric", "system"]
 
             if any(k in task_lower for k in security_keywords):
@@ -165,11 +165,13 @@ Respond in this exact JSON format with no other text:
                 if not parsed.get("mikasa_query"):
                     parsed["mikasa_query"] = f"check infrastructure: {task}"
 
-            personal_keywords = ["calendar", "schedule", "meeting", "email", "gmail", "inbox", "drive", "notion", "today", "tomorrow", "week"]
+            personal_keywords = ["calendar", "schedule", "meeting", "email", "gmail", "inbox", "google drive", "notion", "my schedule", "my emails", "my calendar"]
             if any(k in task_lower for k in personal_keywords):
                 parsed["needs_armin"] = True
+                parsed["needs_eren"] = False
+                parsed["needs_mikasa"] = False
                 if not parsed.get("armin_query"):
-                    parsed["armin_query"] = f"personal assistant: {task}" 
+                    parsed["armin_query"] = f"personal assistant: {task}"
 
             return parsed
     except Exception as e:
