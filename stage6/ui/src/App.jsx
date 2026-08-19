@@ -51,6 +51,16 @@ const AGENTS = {
     deskFacing: 'rear-right',
     voiceId: 'IKne3meq5aSn9XLyUdCD',
   },
+  armin: {
+    name: 'Armin',
+    role: 'Assistant',
+    color: '#a78bfa',
+    sprite: 'dev-2',
+    deskX: 72.0,
+    deskY: 63.0,
+    deskFacing: 'front-right',
+    voiceId: 'cgSgspJ2msm6clMCkdW9',
+  },
 }
 
 const FURNITURE = [
@@ -88,6 +98,14 @@ const WALK_PATHS = {
   'tribal_chief-from-mikasa': [
     { x: 68.7, y: 66.2, facing: 'rear-left' },
     { x: 59.5, y: 57.1, facing: 'rear-left' },
+    { x: 48.9, y: 52.9, facing: 'rear-left' },
+  ],
+  'tribal_chief-to-armin': [
+    { x: 54.0, y: 63.0, facing: 'front-right' },
+    { x: 59.0, y: 73.7, facing: 'front-right' },
+  ],
+  'tribal_chief-from-armin': [
+    { x: 54.0, y: 63.0, facing: 'rear-left' },
     { x: 48.9, y: 52.9, facing: 'rear-left' },
   ],
   'tribal_chief-to-levi': [
@@ -235,13 +253,14 @@ function MicButton({ listening, onClick, disabled }) {
 }
 
 export default function App() {
-  const [statuses, setStatuses] = useState({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle' })
+  const [statuses, setStatuses] = useState({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle', armin: 'idle' })
   const [positions, setPositions] = useState({
     tribal_chief: { x: AGENTS.tribal_chief.deskX, y: AGENTS.tribal_chief.deskY },
     nezuko: { x: AGENTS.nezuko.deskX, y: AGENTS.nezuko.deskY },
     mikasa: { x: AGENTS.mikasa.deskX, y: AGENTS.mikasa.deskY },
     levi: { x: AGENTS.levi.deskX, y: AGENTS.levi.deskY },
     eren: { x: AGENTS.eren.deskX, y: AGENTS.eren.deskY },
+    armin: { x: AGENTS.armin.deskX, y: AGENTS.armin.deskY },
   })
   const [facings, setFacings] = useState({
     tribal_chief: AGENTS.tribal_chief.deskFacing,
@@ -249,6 +268,7 @@ export default function App() {
     mikasa: AGENTS.mikasa.deskFacing,
     levi: AGENTS.levi.deskFacing,
     eren: AGENTS.eren.deskFacing,
+    armin: AGENTS.armin.deskFacing,
   })
   const [orb, setOrb] = useState({ visible: false, x: 0, y: 0, color: '#fff' })
   const [log, setLog] = useState([])
@@ -258,6 +278,7 @@ export default function App() {
   const [connected, setConnected] = useState(false)
   const [listening, setListening] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(true)
+  const [stopping, setStopping] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [speaking, setSpeaking] = useState(false)
   const [timeOfDay] = useState(() => {
@@ -357,8 +378,8 @@ export default function App() {
   }, [listening, setupRecognition])
 
   const addLog = useCallback((agent, msg) => {
-    const colors = { tribal_chief: '#4f8ef7', nezuko: '#f472b6', mikasa: '#ef4444', levi: '#22c55e', eren: '#f59e0b', system: '#6b7280' }
-    const names = { tribal_chief: 'Tribal Chief', nezuko: 'Nezuko', mikasa: 'Mikasa', levi: 'Levi', eren: 'Eren', system: 'SYSTEM' }
+    const colors = { tribal_chief: '#4f8ef7', nezuko: '#f472b6', mikasa: '#ef4444', levi: '#22c55e', eren: '#f59e0b', armin: '#a78bfa', system: '#6b7280' }
+    const names = { tribal_chief: 'Tribal Chief', nezuko: 'Nezuko', mikasa: 'Mikasa', levi: 'Levi', eren: 'Eren', armin: 'Armin', system: 'SYSTEM' }
     setLog(prev => [...prev.slice(-60), {
       id: Date.now() + Math.random(), agent, msg,
       color: colors[agent] || '#6b7280',
@@ -433,6 +454,7 @@ export default function App() {
           if (status === 'active' && agent === 'mikasa') speak(message, 'mikasa')
           if (status === 'active' && agent === 'levi') speak(message, 'levi')
           if (status === 'active' && agent === 'eren') speak(message, 'eren')
+          if (status === 'active' && agent === 'armin') speak(message, 'armin')
           if (agent === 'tribal_chief' && status === 'active' && handoff_to && handoff_to !== 'tribal_chief') {
             const target = AGENTS[handoff_to]
             if (target) {
@@ -461,12 +483,39 @@ export default function App() {
               setFacings(f => ({ ...f, tribal_chief: AGENTS.tribal_chief.deskFacing }))
               setTimeout(done, 1100)
             })
-            enqueue(done => { setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle' }); usedVoiceRef.current = false; done() })
+            enqueue(done => { setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle', armin: 'idle' }); usedVoiceRef.current = false; done() })
           }
         }
       } catch (err) { console.error(err) }
     }
   }, [addLog, enqueue, enqueueWalkPath, enqueueOrb, enqueueDelay, enqueueSetStatus, speak])
+
+  const stop = useCallback(() => {
+    setStopping(true)
+    queueRef.current = []
+    processingRef.current = false
+    wsRef.current?.send(JSON.stringify({ task: '__STOP__' }))
+    setRunning(false)
+    setStopping(false)
+    setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle', armin: 'idle' })
+    setPositions({
+      tribal_chief: { x: AGENTS.tribal_chief.deskX, y: AGENTS.tribal_chief.deskY },
+      nezuko: { x: AGENTS.nezuko.deskX, y: AGENTS.nezuko.deskY },
+      mikasa: { x: AGENTS.mikasa.deskX, y: AGENTS.mikasa.deskY },
+      levi: { x: AGENTS.levi.deskX, y: AGENTS.levi.deskY },
+      eren: { x: AGENTS.eren.deskX, y: AGENTS.eren.deskY },
+      armin: { x: AGENTS.armin.deskX, y: AGENTS.armin.deskY },
+    })
+    setFacings({
+      tribal_chief: AGENTS.tribal_chief.deskFacing,
+      nezuko: AGENTS.nezuko.deskFacing,
+      mikasa: AGENTS.mikasa.deskFacing,
+      levi: AGENTS.levi.deskFacing,
+      eren: AGENTS.eren.deskFacing,
+      armin: AGENTS.armin.deskFacing,
+    })
+    addLog('system', 'Task stopped by user.')
+  }, [addLog])
 
   useEffect(() => { connect(); return () => wsRef.current?.close() }, [])
 
@@ -477,13 +526,14 @@ export default function App() {
     setLog([])
     queueRef.current = []
     processingRef.current = false
-    setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle' })
+    setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle', armin: 'idle' })
     setPositions({
       tribal_chief: { x: AGENTS.tribal_chief.deskX, y: AGENTS.tribal_chief.deskY },
       nezuko: { x: AGENTS.nezuko.deskX, y: AGENTS.nezuko.deskY },
       mikasa: { x: AGENTS.mikasa.deskX, y: AGENTS.mikasa.deskY },
       levi: { x: AGENTS.levi.deskX, y: AGENTS.levi.deskY },
       eren: { x: AGENTS.eren.deskX, y: AGENTS.eren.deskY },
+      armin: { x: AGENTS.armin.deskX, y: AGENTS.armin.deskY },
     })
     setFacings({
       tribal_chief: AGENTS.tribal_chief.deskFacing,
@@ -491,17 +541,14 @@ export default function App() {
       mikasa: AGENTS.mikasa.deskFacing,
       levi: AGENTS.levi.deskFacing,
       eren: AGENTS.eren.deskFacing,
+      armin: AGENTS.armin.deskFacing,
     })
     wsRef.current?.send(JSON.stringify({ task }))
     setTask('')
   }, [task, connected, running])
 
-  useEffect(() => {
-    if (task && !listening && transcript === '') {
-      const timer = setTimeout(() => send(), 800)
-      return () => clearTimeout(timer)
-    }
-  }, [task, listening, transcript])
+  // Auto-send removed - user must press Enter or Send button
+  // Voice transcript populates the input box, user confirms by pressing Enter
 
   const bgImage = timeOfDay === 'day' ? '/rooms/office-day.png' : '/rooms/office-night.png'
 
@@ -645,7 +692,7 @@ export default function App() {
                 <div style={{ fontSize: 28, marginBottom: 8 }}>🎤</div>
                 <div style={{ marginBottom: 6 }}>Press the mic or type below</div>
                 <div style={{ fontSize: 9, color: '#1f2937' }}>
-                  Tribal Chief, Nezuko, Mikasa,<br/>Levi and Eren are standing by
+                  Tribal Chief, Nezuko, Mikasa,<br/>Levi, Eren and Armin are standing by
                 </div>
               </div>
             ) : (
@@ -716,15 +763,28 @@ export default function App() {
                 padding: '4px 8px 6px', borderTop: '1px solid rgba(55,65,81,0.2)',
               }}>
                 <MicButton listening={listening} onClick={toggleListening} disabled={running || !connected} />
-                <button onClick={send} disabled={!task.trim() || running || !connected || listening} style={{
-                  padding: '4px 14px',
-                  background: !task.trim() || running || !connected ? 'rgba(79,142,247,0.2)' : '#4f8ef7',
-                  border: 'none', borderRadius: 5, color: 'white',
-                  fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
-                  cursor: running || !task.trim() ? 'not-allowed' : 'pointer', letterSpacing: 1,
-                }}>
-                  {running ? '⚙' : '⏎ SEND'}
-                </button>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {running && (
+                    <button onClick={stop} style={{
+                      padding: '4px 10px',
+                      background: 'rgba(239,68,68,0.8)',
+                      border: 'none', borderRadius: 5, color: 'white',
+                      fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
+                      cursor: 'pointer', letterSpacing: 1,
+                    }}>
+                      ⏹ STOP
+                    </button>
+                  )}
+                  <button onClick={send} disabled={!task.trim() || running || !connected || listening} style={{
+                    padding: '4px 14px',
+                    background: !task.trim() || running || !connected ? 'rgba(79,142,247,0.2)' : '#4f8ef7',
+                    border: 'none', borderRadius: 5, color: 'white',
+                    fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
+                    cursor: running || !task.trim() ? 'not-allowed' : 'pointer', letterSpacing: 1,
+                  }}>
+                    {running ? '⚙' : '⏎ SEND'}
+                  </button>
+                </div>
               </div>
             </div>
             <div style={{ fontSize: 9, color: '#374151', marginTop: 4, textAlign: 'center' }}>

@@ -7,6 +7,7 @@ import subprocess
 from langchain_ollama import OllamaLLM
 from memory import save_conversation, load_recent_conversations, format_memory_context
 from guardrails import check_input, check_output, GuardrailBlocked
+from armin_tools import get_calendar_events, get_gmail_unread, get_drive_recent, get_notion_pages
 from enum import Enum
 from pydantic import BaseModel
 from typing import Optional
@@ -108,6 +109,7 @@ Available agents:
 - Mikasa: checks Docker container status and system resource metrics
 - Levi: security auditor - checks for security issues, exposed ports, API key health
 - Eren: DevOps engineer - checks service health endpoints and deployment pipeline
+- Armin: Personal assistant - checks Google Calendar, Gmail, Google Drive, and Notion
 
 Rules:
 - If the task mentions health, status, containers, metrics, system, infrastructure -> set needs_mikasa to true
@@ -115,6 +117,7 @@ Rules:
 - If the task mentions health check, services, pipeline, deployment, CI/CD -> set needs_eren to true
 - If the task mentions documents, runbooks, knowledge, procedures -> set needs_nezuko to true
 - For general infrastructure questions, set needs_mikasa and needs_eren both to true
+- If the task mentions calendar, schedule, email, gmail, drive, notion, meeting -> set needs_armin to true
 
 Respond in this exact JSON format with no other text:
 {{
@@ -122,7 +125,9 @@ Respond in this exact JSON format with no other text:
     "needs_mikasa": true,
     "needs_levi": false,
     "needs_eren": true,
+    "needs_armin": false,
     "nezuko_query": "...",
+    "armin_query": "...",
     "mikasa_query": "...",
     "levi_query": "...",
     "eren_query": "...",
@@ -160,6 +165,12 @@ Respond in this exact JSON format with no other text:
                 if not parsed.get("mikasa_query"):
                     parsed["mikasa_query"] = f"check infrastructure: {task}"
 
+            personal_keywords = ["calendar", "schedule", "meeting", "email", "gmail", "inbox", "drive", "notion", "today", "tomorrow", "week"]
+            if any(k in task_lower for k in personal_keywords):
+                parsed["needs_armin"] = True
+                if not parsed.get("armin_query"):
+                    parsed["armin_query"] = f"personal assistant: {task}" 
+
             return parsed
     except Exception as e:
         print(f"Plan error: {e}")
@@ -168,10 +179,12 @@ Respond in this exact JSON format with no other text:
         "needs_mikasa": True,
         "needs_levi": False,
         "needs_eren": False,
+        "needs_armin": False,
         "nezuko_query": task,
         "mikasa_query": task,
         "levi_query": "",
         "eren_query": "",
+        "armin_query": "",
         "plan": "Gathering information from all available sources"
     }
 
@@ -185,6 +198,8 @@ async def tribal_chief_synthesize(task: str, results: dict) -> str:
         sections.append(f"Security audit (Levi):\n{results['levi']}")
     if results.get("eren"):
         sections.append(f"DevOps status (Eren):\n{results['eren']}")
+    if results.get("armin"):
+        sections.append(f"Personal workspace (Armin):\n{results['armin']}")
 
     combined = "\n\n".join(sections) if sections else "No results gathered."
 
@@ -374,6 +389,38 @@ Provide a concise DevOps status report with any issues and recommended actions."
         return f"DevOps check error: {str(e)}"
 
 # ─────────────────────────────────────────
+# Armin — Personal Assistant
+# Handles calendar, email, drive, notion
+# ─────────────────────────────────────────
+async def armin_assist(query: str) -> str:
+    if not query:
+        return "No personal assistant query required."
+    try:
+        results = []
+        query_lower = query.lower()
+
+        if any(k in query_lower for k in ["calendar", "schedule", "meeting", "event", "today", "tomorrow", "week"]):
+            days = 1 if "today" in query_lower else 2 if "tomorrow" in query_lower else 7
+            results.append(get_calendar_events(days_ahead=days))
+
+        if any(k in query_lower for k in ["email", "gmail", "inbox", "unread", "message"]):
+            results.append(get_gmail_unread())
+
+        if any(k in query_lower for k in ["drive", "file", "document", "sheet", "doc"]):
+            results.append(get_drive_recent())
+
+        if any(k in query_lower for k in ["notion", "note", "page", "wiki"]):
+            results.append(get_notion_pages(NOTION_TOKEN))
+
+        if not results:
+            results.append(get_calendar_events(days_ahead=7))
+            results.append(get_gmail_unread())
+
+        return "\n\n".join(results)
+    except Exception as e:
+        return f"Assistant error: {str(e)}"
+
+# ─────────────────────────────────────────
 # Main orchestrator
 # ─────────────────────────────────────────
 async def run_multiagent(task: str):
@@ -478,6 +525,20 @@ async def run_multiagent(task: str):
         yield AgentEvent(agent="eren", status=AgentStatus.COMPLETE,
             message="DevOps check complete. Reporting to Tribal Chief.",
             data={"result": results["eren"][:200] + "..." if len(results["eren"]) > 200 else results["eren"]},
+            handoff_to="tribal_chief")
+        await asyncio.sleep(0.5)
+
+    # Armin
+    if plan.get("needs_armin") and plan.get("armin_query"):
+        yield AgentEvent(agent="armin", status=AgentStatus.THINKING,
+            message="Checking your calendar, email and workspace...")
+        await asyncio.sleep(0.5)
+        yield AgentEvent(agent="armin", status=AgentStatus.ACTIVE,
+            message=f"Fetching: {plan['armin_query']}")
+        results["armin"] = await armin_assist(plan["armin_query"])
+        yield AgentEvent(agent="armin", status=AgentStatus.COMPLETE,
+            message="Workspace data retrieved. Reporting to Tribal Chief.",
+            data={"result": results["armin"][:200] + "..." if len(results["armin"]) > 200 else results["armin"]},
             handoff_to="tribal_chief")
         await asyncio.sleep(0.5)
 

@@ -9,3 +9,7 @@ python-dotenv==1.0.1
 pydantic==2.7.1
 boto3==1.43.67
 psycopg2-binary==2.9.9
+google-api-python-client==2.198.0
+google-auth-oauthlib==1.4.0
+google-auth-httplib2==0.4.1
+notion-client==3.1.0
