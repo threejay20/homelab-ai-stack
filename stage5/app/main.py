@@ -5,6 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agents import run_multiagent, AgentEvent, AgentStatus
+from briefing import create_scheduler, set_broadcast_callback
 
 app = FastAPI(
     title="Homelab Multi-Agent Orchestrator",
@@ -24,6 +25,30 @@ class TaskRequest(BaseModel):
     task: str
 
 active_connections: list[WebSocket] = []
+
+async def broadcast_to_all(message: dict):
+    """Send a message to all connected WebSocket clients."""
+    import json
+    disconnected = []
+    for ws in active_connections:
+        try:
+            await ws.send_text(json.dumps(message))
+        except Exception:
+            disconnected.append(ws)
+    for ws in disconnected:
+        active_connections.remove(ws)
+
+@app.on_event("startup")
+async def startup_event():
+    set_broadcast_callback(broadcast_to_all)
+    scheduler = create_scheduler()
+    scheduler.start()
+    app.state.scheduler = scheduler
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if hasattr(app.state, "scheduler"):
+        app.state.scheduler.shutdown()
 
 @app.get("/")
 def root():
