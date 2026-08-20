@@ -428,7 +428,8 @@ export default function App() {
   }, [enqueue])
 
   const connect = useCallback(() => {
-    const ws = new WebSocket(`ws://${window.location.host}/ws`)
+    const wsUrl = import.meta.env.VITE_WS_URL || `ws://${window.location.host}/ws`
+    const ws = new WebSocket(wsUrl)
     wsRef.current = ws
     ws.onopen = () => setConnected(true)
     ws.onclose = () => { setConnected(false); setTimeout(connect, 3000) }
@@ -577,7 +578,7 @@ export default function App() {
           fontSize: 20, fontWeight: 900, letterSpacing: 4,
           background: 'linear-gradient(90deg,#4f8ef7,#f472b6,#ef4444)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-        }}>HOMELAB AI COMMAND CENTER</div>
+        }}>AI COMMAND CENTER</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 3 }}>
           <div style={{
             fontSize: 10, letterSpacing: 2,

@@ -8,7 +8,7 @@ from agents import run_multiagent, AgentEvent, AgentStatus
 from briefing import create_scheduler, set_broadcast_callback
 
 app = FastAPI(
-    title="Homelab Multi-Agent Orchestrator",
+    title="AI Command Center — Multi-Agent Orchestrator",
     description="Tribal Chief, Nezuko, Mikasa, Levi, Eren and Armin",
     version="2.0.0"
 )
@@ -53,7 +53,7 @@ async def shutdown_event():
 @app.get("/")
 def root():
     return {
-        "service": "Homelab Multi-Agent Orchestrator",
+        "service": "AI Command Center — Multi-Agent Orchestrator",
         "agents": ["Tribal Chief", "Nezuko", "Mikasa", "Levi", "Eren", "Armin"],
         "status": "running"
     }
@@ -80,7 +80,7 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_text(json.dumps({
             "agent": "system",
             "status": "connected",
-            "message": "Connected to Homelab AI Command Center. Tribal Chief, Nezuko, Mikasa, Levi and Eren are standing by."
+            "message": "Connected to AI Command Center. Tribal Chief, Nezuko, Mikasa, Levi, Eren and Armin are standing by."
         }))
         while True:
             data = await websocket.receive_text()
