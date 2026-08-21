@@ -109,14 +109,14 @@ const WALK_PATHS = {
     { x: 48.9, y: 52.9, facing: 'rear-left' },
   ],
   'tribal_chief-to-levi': [
-    { x: 55.0, y: 62.0, facing: 'rear-right' },
-    { x: 57.0, y: 70.0, facing: 'rear-right' },
-    { x: 55.2, y: 78.7, facing: 'front-right' },
+    { x: 44.0, y: 58.0, facing: 'front-left' },
+    { x: 37.0, y: 66.5, facing: 'front-left' },
+    { x: 37.0, y: 66.5, facing: 'rear-left' },
   ],
   'tribal_chief-from-levi': [
-    { x: 57.0, y: 70.0, facing: 'rear-left' },
-    { x: 53.0, y: 62.0, facing: 'rear-left' },
-    { x: 48.9, y: 52.9, facing: 'rear-left' },
+    { x: 44.0, y: 60.0, facing: 'rear-right' },
+    { x: 48.9, y: 52.9, facing: 'rear-right' },
+    { x: 48.9, y: 52.9, facing: 'rear-right' },
   ],
   'tribal_chief-to-eren': [
     { x: 54.0, y: 60.0, facing: 'rear-right' },
@@ -462,10 +462,12 @@ export default function App() {
               enqueueWalkPath(`tribal_chief-to-${handoff_to}`)
               enqueueDelay(200)
               enqueueOrb(target.deskX, target.deskY - 8, target.color)
-              enqueueDelay(400)
-              enqueueWalkPath(`tribal_chief-from-${handoff_to}`)
-              enqueueSetStatus('tribal_chief', 'thinking')
             }
+          }
+          // Walk back when any agent completes and hands off to tribal_chief
+          if (status === 'complete' && handoff_to === 'tribal_chief' && agent !== 'tribal_chief') {
+            enqueueWalkPath(`tribal_chief-from-${agent}`)
+            enqueueSetStatus('tribal_chief', 'thinking')
           }
           if (status === 'complete' && data?.final_answer) {
             const cleaned = data.final_answer
