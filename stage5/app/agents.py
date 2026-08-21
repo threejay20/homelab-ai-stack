@@ -77,7 +77,7 @@ def bedrock_haiku(prompt: str) -> str:
     client = get_bedrock_client()
     body = {
         "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 1000,
+        "max_tokens": 500,
         "temperature": 0.1,
         "messages": [{"role": "user", "content": prompt}]
     }
@@ -121,10 +121,10 @@ Rules:
 
 Respond in this exact JSON format with no other text:
 {{
-    "needs_nezuko": true,
-    "needs_mikasa": true,
+    "needs_nezuko": false,
+    "needs_mikasa": false,
     "needs_levi": false,
-    "needs_eren": true,
+    "needs_eren": false,
     "needs_armin": false,
     "nezuko_query": "...",
     "armin_query": "...",
@@ -152,16 +152,19 @@ Respond in this exact JSON format with no other text:
 
             if any(k in task_lower for k in security_keywords):
                 parsed["needs_levi"] = True
+                parsed["needs_nezuko"] = False
                 if not parsed.get("levi_query"):
                     parsed["levi_query"] = f"security audit: {task}"
 
             if any(k in task_lower for k in devops_keywords):
                 parsed["needs_eren"] = True
+                parsed["needs_nezuko"] = False
                 if not parsed.get("eren_query"):
                     parsed["eren_query"] = f"check service health: {task}"
 
             if any(k in task_lower for k in infra_keywords):
                 parsed["needs_mikasa"] = True
+                parsed["needs_nezuko"] = False
                 if not parsed.get("mikasa_query"):
                     parsed["mikasa_query"] = f"check infrastructure: {task}"
 
@@ -170,6 +173,7 @@ Respond in this exact JSON format with no other text:
                 parsed["needs_armin"] = True
                 parsed["needs_eren"] = False
                 parsed["needs_mikasa"] = False
+                parsed["needs_nezuko"] = False
                 if not parsed.get("armin_query"):
                     parsed["armin_query"] = f"personal assistant: {task}"
 
@@ -452,7 +456,8 @@ async def run_multiagent(task: str):
     first_agent = ("nezuko" if plan.get("needs_nezuko") else
                    "mikasa" if plan.get("needs_mikasa") else
                    "levi" if plan.get("needs_levi") else
-                   "eren" if plan.get("needs_eren") else "tribal_chief")
+                   "eren" if plan.get("needs_eren") else
+                   "armin" if plan.get("needs_armin") else "tribal_chief")
 
     yield AgentEvent(
         agent="tribal_chief",

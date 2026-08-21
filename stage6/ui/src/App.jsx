@@ -101,11 +101,11 @@ const WALK_PATHS = {
     { x: 48.9, y: 52.9, facing: 'rear-left' },
   ],
   'tribal_chief-to-armin': [
-    { x: 54.0, y: 63.0, facing: 'front-right' },
-    { x: 59.0, y: 73.7, facing: 'front-right' },
+    { x: 63.0, y: 58.0, facing: 'rear-right' },
+    { x: 72.0, y: 63.0, facing: 'front-right' },
   ],
   'tribal_chief-from-armin': [
-    { x: 54.0, y: 63.0, facing: 'rear-left' },
+    { x: 63.0, y: 58.0, facing: 'rear-left' },
     { x: 48.9, y: 52.9, facing: 'rear-left' },
   ],
   'tribal_chief-to-levi': [
