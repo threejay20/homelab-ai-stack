@@ -50,7 +50,7 @@ services:
     volumes:
       - mlflow_artifacts:/mlflow/artifacts
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     networks:
       - homelab-network
     mem_limit: 512m
@@ -71,7 +71,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     networks:
       - homelab-network
     mem_limit: 6g
@@ -87,7 +87,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     networks:
       - homelab-network
     mem_limit: 256m
