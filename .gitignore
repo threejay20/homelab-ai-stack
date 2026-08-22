@@ -3,3 +3,9 @@
 **/*.pyc
 **/*.pyo
 **/.DS_Store
+scripts/google-credentials.json
+scripts/token*.json
+stage5/app/google-token.json
+stage5/app/google-credentials.json
+scripts/google-token.json
+scripts/mcp-tokens/
