@@ -312,13 +312,15 @@ async def levi_audit(query: str) -> str:
 
         # Use LLM to analyze findings
         findings_text = "\n".join(findings)
-        prompt = f"""You are Levi, a security auditor. Analyze these security findings for the homelab:
+        prompt = f"""You are Levi, a security auditor for a local development homelab stack. Analyze these security findings:
 
 {findings_text}
 
 Query: {query}
 
-Provide a concise security assessment with any risks and recommendations."""
+IMPORTANT CONTEXT: This is a LOCAL homelab running on WSL2 behind a home router NAT. Services bound to 0.0.0.0 are accessible on the LOCAL NETWORK ONLY - they are NOT exposed to the internet unless ports are explicitly forwarded through the router. Do not describe local services as "internet-exposed" or "publicly accessible".
+
+Provide a concise security assessment focused on actual risks in this local context. Acknowledge what is working well before listing concerns."""
 
         analysis = invoke_llm(prompt, BEDROCK_PLAN_MODEL)
         return f"Security Findings:\n{findings_text}\n\nAnalysis:\n{analysis}"
