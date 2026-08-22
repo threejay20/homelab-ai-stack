@@ -494,10 +494,11 @@ export default function App() {
   }, [addLog, enqueue, enqueueWalkPath, enqueueOrb, enqueueDelay, enqueueSetStatus, speak])
 
   const stop = useCallback(() => {
-    setStopping(true)
+    // Clear animation queue and reset all state client-side
     queueRef.current = []
     processingRef.current = false
-    wsRef.current?.send(JSON.stringify({ task: '__STOP__' }))
+    usedVoiceRef.current = false
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     setRunning(false)
     setStopping(false)
     setStatuses({ tribal_chief: 'idle', nezuko: 'idle', mikasa: 'idle', levi: 'idle', eren: 'idle', armin: 'idle' })
