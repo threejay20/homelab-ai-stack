@@ -13,3 +13,4 @@ scripts/mcp-tokens/
 # Environment files with real keys are never committed
 **/.env.production
 **/.env.local
+scripts/aws-deploy.env
