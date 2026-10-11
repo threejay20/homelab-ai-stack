@@ -9,3 +9,7 @@ stage5/app/google-token.json
 stage5/app/google-credentials.json
 scripts/google-token.json
 scripts/mcp-tokens/
+
+# Environment files with real keys are never committed
+**/.env.production
+**/.env.local
