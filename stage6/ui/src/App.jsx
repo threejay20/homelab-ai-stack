@@ -297,7 +297,14 @@ export default function App() {
   const usedVoiceRef = useRef(false)
   const scale = useRoomScale(roomRef)
 
-  const ELEVEN_API_KEY = import.meta.env.VITE_ELEVEN_API_KEY || ''
+  // Voice goes through our own backend, which holds the ElevenLabs key.
+  // No key is ever built into this browser code.
+  const API_BASE = (() => {
+    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/$/, '')
+    const ws = import.meta.env.VITE_WS_URL
+    if (ws) return ws.replace(/^ws/, 'http').replace(/\/ws\/?$/, '')
+    return '/api'
+  })()
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
@@ -315,21 +322,14 @@ export default function App() {
         audioRef.current.pause()
         audioRef.current = null
       }
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${cfg.voiceId}`,
-        {
-          method: 'POST',
-          headers: {
-            'xi-api-key': ELEVEN_API_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: text.substring(0, 500),
-            model_id: 'eleven_turbo_v2',
-            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-          }),
-        }
-      )
+      const response = await fetch(`${API_BASE}/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text.substring(0, 500),
+          voice_id: cfg.voiceId,
+        }),
+      })
       if (!response.ok) { setSpeaking(false); return }
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)

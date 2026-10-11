@@ -43,7 +43,7 @@ Renders an isometric office scene with six character sprites at their desks. Whe
 - **Voice ON/OFF toggle** — header button mutes all speech synthesis
 - **Per-agent voices** — each agent speaks in a distinct voice
 
-Voice key stored in `VITE_ELEVEN_API_KEY` environment variable. Never committed to git.
+The ElevenLabs key never reaches the browser. The UI sends text to the Stage 5 backend at `/tts`, and the backend adds the key from its own environment (`ELEVEN_API_KEY` in `stage5/.env`, which is not committed) before calling ElevenLabs.
 
 ## Stop Button
 
@@ -82,8 +82,9 @@ A red STOP button appears while a task is running. Clicking it:
 ## Quick Start
 
 ```bash
-# Create env file with ElevenLabs key
-echo "VITE_ELEVEN_API_KEY=your_key_here" > ui/.env.local
+# The voice key goes in the Stage 5 backend's settings, not in the UI
+echo "ELEVEN_API_KEY=your_key_here" >> ../stage5/.env
+(cd ../stage5 && docker compose up -d --build)
 
 docker compose build
 docker compose up -d
