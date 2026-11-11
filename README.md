@@ -1,23 +1,8 @@
 # AI Command Center
 
-> A production-grade AI infrastructure stack — 6 specialized agents, local LLM serving, RAG pipeline, AWS Bedrock integration, Google Workspace connectivity, and a live animated office UI. Runs locally for free. Deploys to AWS on demand.
+> Production-pattern AI infrastructure on a single machine: local LLM serving, RAG, an evaluation test suite, observability and security controls, with an on-demand AWS Bedrock path. Runs locally for free. Deploys to AWS on demand.
 
 ![AI Command Center](docs/architecture.png)
-
-Six AI agents collaborate in real time inside an animated isometric office. Speak a query via microphone. Watch Tribal Chief analyze it, walk across the office to the right agent, wait for results, then walk back to synthesize the answer in Claude Haiku's voice.
-
----
-
-## Agents
-
-| Agent | Role | Color | Capability |
-|---|---|---|---|
-| Tribal Chief | Director | Blue | Orchestrates tasks, delegates, synthesizes, remembers conversation history |
-| Nezuko | Researcher | Pink | Semantic search across a RAG knowledge base |
-| Mikasa | Executor | Red | Docker container status and system metrics |
-| Levi | Security | Green | Live security audits — ports, API keys, auth enforcement |
-| Eren | DevOps | Amber | Service health endpoints and Prometheus targets |
-| Armin | Assistant | Purple | Google Calendar, Gmail, Drive, and Notion |
 
 ---
 
@@ -79,7 +64,7 @@ This project implements the full AI infrastructure stack from local LLM serving 
 |                                                                   |
 |  +-------------------------------------------------------------+  |
 |  | CI/CD + Security                                            |  |
-|  | GitHub Actions * 32 pytest tests * API key auth *           |  |
+|  | CI image build * 32 pytest tests * API key auth *           |  |
 |  | Docker socket proxy * Bedrock Guardrails * 127.0.0.1        |  |
 |  +-------------------------------------------------------------+  |
 +------------------------------------------------------------------+
@@ -103,7 +88,7 @@ Memory:        PostgreSQL (conversation history)
 Tracking:      MLflow 2.11.1 + PostgreSQL
 Monitoring:    Prometheus + Grafana + Evidently AI
 Scheduler:     APScheduler (morning briefing 8AM EST)
-CI/CD:         GitHub Actions (32 pytest evaluation tests)
+CI:            GitHub Actions (image builds + test collection); 32 pytest tests run locally
 UI:            React 18 + Vite + Nginx
 Voice:         Web Speech API + ElevenLabs TTS
 Containers:    Docker Compose (14 services)
@@ -123,8 +108,8 @@ Qdrant + LangChain + sentence-transformers + FastAPI. Document ingestion, semant
 ### [Stage 2.5 — DevOps Agent](./stage2.5)
 Single-agent tool routing. Docker socket proxy for read-only container inspection.
 
-### [Stage 3 — CI/CD Evaluation](./stage3)
-32 pytest tests on GitHub Actions. RAG quality, auth regression, agent routing, response contracts.
+### [Stage 3 — Evaluation Tests](./stage3)
+32 pytest tests covering RAG quality, auth regression, agent routing and response contracts. They run against the live stack locally; GitHub Actions builds the images and validates that the suite collects.
 
 ### [Security](./security)
 API key auth, Docker socket proxy, all management services bound to 127.0.0.1, documented threat model.
@@ -137,6 +122,23 @@ Six agents with keyword routing, Bedrock integration, Bedrock Guardrails, conver
 
 ### [Stage 6 — Live Agent UI](./stage6)
 Animated isometric office, 6 character sprites, ElevenLabs voice per agent, walk animations, Slack-style chat panel, Stop button.
+
+---
+
+## Multi-Agent Layer and Live UI
+
+Six AI agents collaborate in real time inside an animated isometric office. Speak a query via microphone. Watch Tribal Chief analyze it, walk across the office to the right agent, wait for results, then walk back to synthesize the answer in Claude Haiku's voice.
+
+### Agents
+
+| Agent | Role | Color | Capability |
+|---|---|---|---|
+| Tribal Chief | Director | Blue | Orchestrates tasks, delegates, synthesizes, remembers conversation history |
+| Nezuko | Researcher | Pink | Semantic search across a RAG knowledge base |
+| Mikasa | Executor | Red | Docker container status and system metrics |
+| Levi | Security | Green | Live security audits — ports, API keys, auth enforcement |
+| Eren | DevOps | Amber | Service health endpoints and Prometheus targets |
+| Armin | Assistant | Purple | Google Calendar, Gmail, Drive, and Notion |
 
 ---
 
@@ -168,7 +170,7 @@ docker ps --format "table {{.Names}}\t{{.Status}}" | sort
 | Service | URL | Credentials |
 |---|---|---|
 | AI Command Center UI | http://localhost:3001 | — |
-| Grafana | http://localhost:3000 | admin / homelab123 |
+| Grafana | http://localhost:3000 | Set in `stage4/.env` (`GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`) |
 | MLflow | http://localhost:5000 | — |
 | Portainer | http://localhost:9000 | — |
 | Prometheus | http://localhost:9090 | — |
@@ -216,6 +218,8 @@ Cost: ~$0.002 per query. Estimated $1-3/month for daily use.
 
 ---
 
+The workflow builds the Stage 1, 2 and 2.5 images and checks that the 32-test suite in `stage3/tests` collects. The tests themselves run locally against the running stack.
+
 ## Security
 
 | Control | Implementation |
@@ -226,15 +230,6 @@ Cost: ~$0.002 per query. Estimated $1-3/month for daily use.
 | Port binding | Management services on 127.0.0.1 only |
 | Secret management | .env gitignored, .env.example provided |
 | Threat model | Documented in SECURITY.md |
-
----
-
-## Certifications
-
-Built as preparation for:
-- AWS Cloud Practitioner ✅
-- AWS Solutions Architect Associate SAA-C03 ✅
-- AWS Certified Generative AI Developer Professional AIP-C01 🎯
 
 ---
 
