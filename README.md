@@ -1,29 +1,14 @@
 # AI Command Center
 
-> A production-grade AI infrastructure stack — 6 specialized agents, local LLM serving, RAG pipeline, AWS Bedrock integration, Google Workspace connectivity, and a live animated office UI. Runs locally for free. Deploys to AWS on demand.
+> A homelab AI platform that runs on one laptop: local LLMs, RAG, a test suite, monitoring and security controls, plus an optional AWS Bedrock path. It runs locally for free and deploys to AWS when I want it to.
 
 ![AI Command Center](docs/architecture.png)
-
-Six AI agents collaborate in real time inside an animated isometric office. Speak a query via microphone. Watch Tribal Chief analyze it, walk across the office to the right agent, wait for results, then walk back to synthesize the answer in Claude Haiku's voice.
-
----
-
-## Agents
-
-| Agent | Role | Color | Capability |
-|---|---|---|---|
-| Tribal Chief | Director | Blue | Orchestrates tasks, delegates, synthesizes, remembers conversation history |
-| Nezuko | Researcher | Pink | Semantic search across a RAG knowledge base |
-| Mikasa | Executor | Red | Docker container status and system metrics |
-| Levi | Security | Green | Live security audits — ports, API keys, auth enforcement |
-| Eren | DevOps | Amber | Service health endpoints and Prometheus targets |
-| Armin | Assistant | Purple | Google Calendar, Gmail, Drive, and Notion |
 
 ---
 
 ## What This Demonstrates
 
-This project implements the full AI infrastructure stack from local LLM serving to multi-agent orchestration, evaluation, observability, Google Workspace integration, AWS Bedrock Guardrails, and a live voice-enabled UI. Every component maps to an AWS managed service:
+I built this to work through the whole AI infrastructure stack on hardware I own: local model serving, RAG, multi-agent orchestration, tests, monitoring, Google Workspace integration, Bedrock Guardrails and a voice UI. Each local piece has an AWS managed-service counterpart:
 
 | Local Implementation | AWS Equivalent |
 |---|---|
@@ -79,7 +64,7 @@ This project implements the full AI infrastructure stack from local LLM serving 
 |                                                                   |
 |  +-------------------------------------------------------------+  |
 |  | CI/CD + Security                                            |  |
-|  | GitHub Actions * 32 pytest tests * API key auth *           |  |
+|  | CI image build * 32 pytest tests * API key auth *           |  |
 |  | Docker socket proxy * Bedrock Guardrails * 127.0.0.1        |  |
 |  +-------------------------------------------------------------+  |
 +------------------------------------------------------------------+
@@ -103,7 +88,7 @@ Memory:        PostgreSQL (conversation history)
 Tracking:      MLflow 2.11.1 + PostgreSQL
 Monitoring:    Prometheus + Grafana + Evidently AI
 Scheduler:     APScheduler (morning briefing 8AM EST)
-CI/CD:         GitHub Actions (32 pytest evaluation tests)
+CI:            GitHub Actions (image builds + test collection); 32 pytest tests run locally
 UI:            React 18 + Vite + Nginx
 Voice:         Web Speech API + ElevenLabs TTS
 Containers:    Docker Compose (14 services)
@@ -114,29 +99,46 @@ Cloud:         ECS Fargate + S3 + CloudFront + ECR
 
 ## Stages
 
-### [Stage 1 — Local AI Serving](./stage1)
+### [Stage 1: Local AI Serving](./stage1)
 Ollama + MLflow + PostgreSQL + Portainer. The foundation layer.
 
-### [Stage 2 — RAG Pipeline](./stage2)
+### [Stage 2: RAG Pipeline](./stage2)
 Qdrant + LangChain + sentence-transformers + FastAPI. Document ingestion, semantic search, grounded answers. Prometheus metrics instrumented.
 
-### [Stage 2.5 — DevOps Agent](./stage2.5)
+### [Stage 2.5: DevOps Agent](./stage2.5)
 Single-agent tool routing. Docker socket proxy for read-only container inspection.
 
-### [Stage 3 — CI/CD Evaluation](./stage3)
-32 pytest tests on GitHub Actions. RAG quality, auth regression, agent routing, response contracts.
+### [Stage 3: Evaluation Tests](./stage3)
+32 pytest tests cover RAG quality, auth regression, agent routing and response contracts. I run them locally against the live stack. GitHub Actions builds the images and checks that the suite collects.
 
 ### [Security](./security)
 API key auth, Docker socket proxy, all management services bound to 127.0.0.1, documented threat model.
 
-### [Stage 4 — Observability](./stage4)
+### [Stage 4: Observability](./stage4)
 Prometheus + Grafana (auto-provisioned dashboard) + Node Exporter + Evidently AI for RAG quality monitoring.
 
-### [Stage 5 — Multi-Agent Orchestration](./stage5)
-Six agents with keyword routing, Bedrock integration, Bedrock Guardrails, conversation memory, Google Workspace integration, automated morning briefing, and Stop functionality.
+### [Stage 5: Multi-Agent Orchestration](./stage5)
+Six agents with keyword routing, Bedrock and Bedrock Guardrails, conversation memory, Google Workspace integration, a morning briefing and a Stop button.
 
-### [Stage 6 — Live Agent UI](./stage6)
-Animated isometric office, 6 character sprites, ElevenLabs voice per agent, walk animations, Slack-style chat panel, Stop button.
+### [Stage 6: Live Agent UI](./stage6)
+An animated isometric office with six character sprites, a separate ElevenLabs voice for each agent, walk animations, a Slack-style chat panel and a Stop button.
+
+---
+
+## Multi-Agent Layer and Live UI
+
+Six agents work together inside an animated isometric office. You speak a question into the mic, Tribal Chief figures out who should handle it, walks over to that agent, waits for the result, then walks back and gives you the answer in Claude Haiku's voice.
+
+### Agents
+
+| Agent | Role | Color | Capability |
+|---|---|---|---|
+| Tribal Chief | Director | Blue | Plans the task, delegates, pulls the answer together, keeps conversation history |
+| Nezuko | Researcher | Pink | Semantic search across a RAG knowledge base |
+| Mikasa | Executor | Red | Docker container status and system metrics |
+| Levi | Security | Green | Live security audits: ports, API keys, auth enforcement |
+| Eren | DevOps | Amber | Service health endpoints and Prometheus targets |
+| Armin | Assistant | Purple | Google Calendar, Gmail, Drive, and Notion |
 
 ---
 
@@ -167,11 +169,11 @@ docker ps --format "table {{.Names}}\t{{.Status}}" | sort
 ### Access
 | Service | URL | Credentials |
 |---|---|---|
-| AI Command Center UI | http://localhost:3001 | — |
-| Grafana | http://localhost:3000 | admin / homelab123 |
-| MLflow | http://localhost:5000 | — |
-| Portainer | http://localhost:9000 | — |
-| Prometheus | http://localhost:9090 | — |
+| AI Command Center UI | http://localhost:3001 |: |
+| Grafana | http://localhost:3000 | Set in `stage4/.env` (`GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`) |
+| MLflow | http://localhost:5000 |: |
+| Portainer | http://localhost:9000 |: |
+| Prometheus | http://localhost:9090 |: |
 
 ### Ingest Knowledge Base
 ```bash
@@ -214,14 +216,14 @@ Cost: ~$0.002 per query. Estimated $1-3/month for daily use.
 
 [![AI Eval Pipeline](https://github.com/threejay20/homelab-ai-stack/actions/workflows/ai-eval.yml/badge.svg)](https://github.com/threejay20/homelab-ai-stack/actions/workflows/ai-eval.yml)
 
----
+The workflow builds the Stage 1, 2 and 2.5 images and checks that the 32-test suite in `stage3/tests` collects. The tests themselves only run locally, against the running stack.
 
 ## Security
 
 | Control | Implementation |
 |---|---|
 | API authentication | X-API-Key header on all endpoints |
-| Container isolation | Docker socket proxy — read-only |
+| Container isolation | Docker socket proxy: read-only |
 | Content safety | AWS Bedrock Guardrails |
 | Port binding | Management services on 127.0.0.1 only |
 | Secret management | .env gitignored, .env.example provided |
@@ -229,18 +231,9 @@ Cost: ~$0.002 per query. Estimated $1-3/month for daily use.
 
 ---
 
-## Certifications
-
-Built as preparation for:
-- AWS Cloud Practitioner ✅
-- AWS Solutions Architect Associate SAA-C03 ✅
-- AWS Certified Generative AI Developer Professional AIP-C01 🎯
-
----
-
 ## Author
 
-**Justin** — Senior DevOps Engineer * Founder of Thirdmark
+**Justin**: Senior DevOps Engineer * Founder of Thirdmark
 AWS Certified (CCP, SAA-C03)
 
 [GitHub](https://github.com/threejay20) * [LinkedIn](https://linkedin.com/in/justinjjohnson1)
