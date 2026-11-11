@@ -49,5 +49,5 @@ Collects metrics from the RAG pipeline and agent, stores them in Prometheus, dis
 docker compose up -d
 ```
 
-Access Grafana at http://localhost:3000 with admin / homelab123.
+Access Grafana at http://localhost:3000 and sign in with the `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` values you set in `stage4/.env`.
 The homelab dashboard loads automatically.
